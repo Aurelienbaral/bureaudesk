@@ -1,0 +1,1471 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BureauDesk — CRM Commercial</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    /* ============================================
+       CSS VARIABLES & RESET
+    ============================================ */
+    :root {
+      --ink: #1A1F36;
+      --sidebar-bg: #1A1F36;
+      --sidebar-hover: rgba(255,255,255,0.07);
+      --sidebar-active: rgba(59,130,246,0.18);
+      --sidebar-active-border: #3B82F6;
+      --bg: #F0F2F7;
+      --card: #FFFFFF;
+      --border: #E5E7EB;
+      --text: #1A1F36;
+      --text-muted: #6B7280;
+      --blue: #2563EB;
+      --blue-light: #EFF6FF;
+      --blue-hover: #1D4ED8;
+      --amber: #F59E0B;
+      --amber-light: #FFFBEB;
+      --green: #10B981;
+      --green-light: #ECFDF5;
+      --red: #EF4444;
+      --red-light: #FEF2F2;
+      --purple: #8B5CF6;
+      --sidebar-width: 260px;
+      --topbar-height: 64px;
+      --radius: 12px;
+      --radius-sm: 8px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.07), 0 4px 16px rgba(0,0,0,0.05);
+      --shadow-md: 0 4px 24px rgba(0,0,0,0.10);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 15px; }
+    body {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+    h1, h2, h3, h4, .brand { font-family: 'Syne', sans-serif; }
+
+    /* ============================================
+       LOADING SCREEN
+    ============================================ */
+    .loading-screen {
+      position: fixed; inset: 0;
+      background: var(--ink);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 20px; z-index: 9999;
+      transition: opacity 0.4s;
+    }
+    .loading-logo { font-family:'Syne',sans-serif; font-size:1.8rem; font-weight:700; color:white; letter-spacing:-0.03em; }
+    .loading-logo span { color: var(--amber); }
+    .loading-bar { width:120px; height:3px; background:rgba(255,255,255,0.15); border-radius:2px; overflow:hidden; }
+    .loading-bar-fill { height:100%; background:var(--blue); border-radius:2px; animation:loadBar 1.2s ease forwards; }
+    @keyframes loadBar { from{width:0} to{width:100%} }
+
+    /* ============================================
+       LOGIN PAGE
+    ============================================ */
+    #page-login { display:none; min-height:100vh; background:var(--bg); }
+    #page-login.active { display:flex; }
+
+    .login-split { display:flex; width:100%; min-height:100vh; }
+
+    .login-brand {
+      flex: 0 0 480px;
+      background: var(--ink);
+      display:flex; flex-direction:column;
+      justify-content:space-between;
+      padding: 56px 48px;
+      position:relative; overflow:hidden;
+    }
+    .login-brand::before {
+      content:''; position:absolute; top:-100px; right:-100px;
+      width:500px; height:500px; border-radius:50%;
+      background:radial-gradient(circle, rgba(59,130,246,0.15) 0%, transparent 70%);
+    }
+    .login-brand::after {
+      content:''; position:absolute; bottom:-80px; left:-80px;
+      width:400px; height:400px; border-radius:50%;
+      background:radial-gradient(circle, rgba(245,158,11,0.10) 0%, transparent 70%);
+    }
+    .login-brand-logo { display:flex; align-items:center; gap:12px; }
+    .login-brand-icon {
+      width:44px; height:44px; background:var(--blue);
+      border-radius:10px; display:flex; align-items:center; justify-content:center;
+    }
+    .login-brand-name { font-family:'Syne',sans-serif; font-size:1.5rem; font-weight:700; color:white; letter-spacing:-0.02em; }
+    .login-brand-name span { color:var(--amber); }
+    .login-brand-headline { position:relative; z-index:1; }
+    .login-brand-headline h2 { font-size:2.2rem; font-weight:700; color:white; line-height:1.2; margin-bottom:20px; letter-spacing:-0.03em; }
+    .login-brand-headline h2 em { font-style:normal; color:var(--amber); }
+    .login-brand-headline p { color:rgba(255,255,255,0.55); line-height:1.6; font-size:0.95rem; }
+    .login-brand-features { display:flex; flex-direction:column; gap:14px; position:relative; z-index:1; }
+    .login-feature { display:flex; align-items:center; gap:12px; color:rgba(255,255,255,0.75); font-size:0.875rem; }
+    .login-feature-dot { width:8px; height:8px; border-radius:50%; background:var(--blue); flex-shrink:0; }
+
+    .login-form-panel { flex:1; display:flex; align-items:center; justify-content:center; padding:48px 40px; }
+    .login-form-box { width:100%; max-width:400px; }
+    .login-form-box h1 { font-size:1.75rem; font-weight:700; letter-spacing:-0.03em; color:var(--ink); margin-bottom:8px; }
+    .login-subtitle { color:var(--text-muted); margin-bottom:36px; font-size:0.9rem; }
+
+    .form-group { margin-bottom:20px; }
+    .form-group label { display:block; font-size:0.78rem; font-weight:600; color:var(--text); margin-bottom:8px; letter-spacing:0.04em; text-transform:uppercase; }
+    .form-group input, .form-group select, .form-group textarea {
+      width:100%; padding:11px 15px;
+      border:1.5px solid var(--border); border-radius:var(--radius-sm);
+      font-family:'DM Sans',sans-serif; font-size:0.9rem;
+      color:var(--text); background:white; outline:none;
+      transition:border-color 0.2s, box-shadow 0.2s;
+    }
+    .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+      border-color:var(--blue); box-shadow:0 0 0 3px rgba(37,99,235,0.10);
+    }
+
+    .btn-primary {
+      width:100%; padding:13px 24px;
+      background:var(--blue); color:white;
+      border:none; border-radius:var(--radius-sm);
+      font-family:'Syne',sans-serif; font-size:0.95rem; font-weight:600;
+      cursor:pointer; transition:background 0.2s, transform 0.1s; letter-spacing:0.01em;
+    }
+    .btn-primary:hover { background:var(--blue-hover); }
+    .btn-primary:active { transform:scale(0.99); }
+    .btn-primary:disabled { opacity:0.6; cursor:not-allowed; }
+
+    .login-error {
+      background:var(--red-light); border:1px solid #FECACA; color:var(--red);
+      padding:10px 14px; border-radius:var(--radius-sm);
+      font-size:0.85rem; margin-bottom:16px; display:none;
+    }
+    .login-error.show { display:block; }
+
+    /* ============================================
+       APP SHELL
+    ============================================ */
+    #app { display:none; }
+    #app.active { display:flex; min-height:100vh; }
+
+    /* SIDEBAR */
+    .sidebar {
+      width:var(--sidebar-width); background:var(--sidebar-bg);
+      min-height:100vh; display:flex; flex-direction:column;
+      position:fixed; left:0; top:0; z-index:100;
+      transition:transform 0.3s ease;
+    }
+    .sidebar-logo {
+      padding:22px 20px; display:flex; align-items:center; gap:12px;
+      border-bottom:1px solid rgba(255,255,255,0.07); cursor:pointer; text-decoration:none;
+    }
+    .sidebar-logo-icon { width:34px; height:34px; background:var(--blue); border-radius:7px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+    .sidebar-logo-text { font-family:'Syne',sans-serif; font-size:1.05rem; font-weight:700; color:white; letter-spacing:-0.02em; }
+    .sidebar-logo-text span { color:var(--amber); }
+
+    .sidebar-nav { flex:1; padding:12px; display:flex; flex-direction:column; gap:2px; overflow-y:auto; }
+    .sidebar-section-label { font-size:0.63rem; font-weight:600; color:rgba(255,255,255,0.28); letter-spacing:0.12em; text-transform:uppercase; padding:12px 8px 5px; margin-top:4px; }
+
+    .nav-item {
+      display:flex; align-items:center; gap:10px;
+      padding:9px 11px; border-radius:var(--radius-sm);
+      color:rgba(255,255,255,0.58); cursor:pointer;
+      transition:all 0.15s; font-size:0.875rem; font-weight:500;
+      border:none; background:none; width:100%; text-align:left;
+      text-decoration:none; position:relative;
+    }
+    .nav-item:hover { background:var(--sidebar-hover); color:rgba(255,255,255,0.9); }
+    .nav-item.active { background:var(--sidebar-active); color:white; }
+    .nav-item.active::before {
+      content:''; position:absolute; left:0; top:50%; transform:translateY(-50%);
+      width:3px; height:18px; background:var(--sidebar-active-border); border-radius:0 2px 2px 0;
+    }
+    .nav-item svg { flex-shrink:0; opacity:0.75; }
+    .nav-item.active svg { opacity:1; }
+    .nav-badge { margin-left:auto; background:var(--red); color:white; font-size:0.65rem; font-weight:700; padding:2px 6px; border-radius:20px; }
+
+    .sidebar-bottom { padding:10px; border-top:1px solid rgba(255,255,255,0.07); }
+    .sidebar-user { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:var(--radius-sm); cursor:default; }
+    .user-avatar { width:32px; height:32px; border-radius:50%; background:linear-gradient(135deg,var(--blue),var(--purple)); display:flex; align-items:center; justify-content:center; font-family:'Syne',sans-serif; font-size:0.75rem; font-weight:700; color:white; flex-shrink:0; }
+    .user-info { flex:1; min-width:0; }
+    .user-name { font-size:0.82rem; font-weight:600; color:white; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .user-role { font-size:0.7rem; color:rgba(255,255,255,0.38); }
+    .btn-logout { background:none; border:none; cursor:pointer; color:rgba(255,255,255,0.38); padding:4px; border-radius:4px; transition:color 0.15s; display:flex; }
+    .btn-logout:hover { color:var(--red); }
+
+    /* MAIN */
+    .main-content { margin-left:var(--sidebar-width); flex:1; display:flex; flex-direction:column; min-height:100vh; }
+
+    /* TOPBAR */
+    .topbar {
+      height:var(--topbar-height); background:white; border-bottom:1px solid var(--border);
+      display:flex; align-items:center; padding:0 28px;
+      position:sticky; top:0; z-index:50; gap:16px;
+    }
+    .topbar-burger { display:none; background:none; border:none; cursor:pointer; color:var(--text); padding:4px; }
+    .topbar-title { font-family:'Syne',sans-serif; font-size:1rem; font-weight:700; color:var(--ink); }
+    .topbar-right { margin-left:auto; display:flex; align-items:center; gap:10px; }
+    .topbar-notif { width:34px; height:34px; border-radius:var(--radius-sm); border:1.5px solid var(--border); background:white; cursor:pointer; display:flex; align-items:center; justify-content:center; color:var(--text-muted); transition:all 0.15s; position:relative; }
+    .topbar-notif:hover { border-color:var(--blue); color:var(--blue); }
+    .notif-dot { position:absolute; top:5px; right:5px; width:7px; height:7px; border-radius:50%; background:var(--red); border:1.5px solid white; }
+
+    /* PAGE CONTENT */
+    .page-content { padding:24px; flex:1; }
+    .page-header { margin-bottom:22px; display:flex; align-items:flex-start; justify-content:space-between; flex-wrap:wrap; gap:12px; }
+    .page-header-left h1 { font-size:1.45rem; font-weight:700; letter-spacing:-0.03em; color:var(--ink); margin-bottom:3px; }
+    .page-header-left p { color:var(--text-muted); font-size:0.85rem; }
+
+    /* CARDS */
+    .card { background:var(--card); border-radius:var(--radius); border:1px solid var(--border); box-shadow:var(--shadow); padding:22px; }
+    .card-header { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:18px; gap:12px; flex-wrap:wrap; }
+    .card-title { font-family:'Syne',sans-serif; font-size:0.92rem; font-weight:700; color:var(--ink); }
+    .card-subtitle { font-size:0.78rem; color:var(--text-muted); margin-top:2px; }
+
+    /* STATS */
+    .stats-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(200px,1fr)); gap:14px; margin-bottom:22px; }
+    .stat-card { background:var(--card); border-radius:var(--radius); border:1px solid var(--border); padding:18px 20px; box-shadow:var(--shadow); display:flex; flex-direction:column; gap:10px; }
+    .stat-card-top { display:flex; align-items:flex-start; justify-content:space-between; }
+    .stat-icon { width:38px; height:38px; border-radius:9px; display:flex; align-items:center; justify-content:center; }
+    .stat-icon.blue { background:var(--blue-light); color:var(--blue); }
+    .stat-icon.amber { background:var(--amber-light); color:var(--amber); }
+    .stat-icon.green { background:var(--green-light); color:var(--green); }
+    .stat-icon.red { background:var(--red-light); color:var(--red); }
+    .stat-trend { font-size:0.72rem; font-weight:600; padding:3px 8px; border-radius:20px; }
+    .stat-trend.neutral { background:#F3F4F6; color:var(--text-muted); }
+    .stat-trend.down { background:var(--red-light); color:var(--red); }
+    .stat-value { font-family:'Syne',sans-serif; font-size:1.65rem; font-weight:700; color:var(--ink); letter-spacing:-0.04em; line-height:1; }
+    .stat-label { font-size:0.78rem; color:var(--text-muted); font-weight:500; }
+
+    /* GRIDS */
+    .content-grid { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+    .content-grid.thirds { grid-template-columns:2fr 1fr; }
+
+    /* TABLE */
+    .data-table { width:100%; border-collapse:collapse; }
+    .data-table th { text-align:left; font-size:0.7rem; font-weight:600; text-transform:uppercase; letter-spacing:0.07em; color:var(--text-muted); padding:0 14px 11px; border-bottom:1px solid var(--border); }
+    .data-table td { padding:12px 14px; font-size:0.875rem; border-bottom:1px solid #F3F4F6; color:var(--text); }
+    .data-table tr:last-child td { border-bottom:none; }
+    .data-table tr:hover td { background:#FAFAFA; }
+
+    /* BADGES */
+    .badge { display:inline-flex; align-items:center; padding:3px 9px; border-radius:20px; font-size:0.7rem; font-weight:600; }
+    .badge-blue { background:var(--blue-light); color:var(--blue); }
+    .badge-green { background:var(--green-light); color:var(--green); }
+    .badge-amber { background:var(--amber-light); color:var(--amber); }
+    .badge-red { background:var(--red-light); color:var(--red); }
+    .badge-gray { background:#F3F4F6; color:var(--text-muted); }
+    .badge-purple { background:#F5F3FF; color:var(--purple); }
+
+    /* BUTTONS */
+    .btn { display:inline-flex; align-items:center; gap:6px; padding:8px 16px; border-radius:var(--radius-sm); font-family:'DM Sans',sans-serif; font-size:0.875rem; font-weight:500; cursor:pointer; transition:all 0.15s; border:none; text-decoration:none; }
+    .btn-blue { background:var(--blue); color:white; }
+    .btn-blue:hover { background:var(--blue-hover); }
+    .btn-outline { background:white; color:var(--text); border:1.5px solid var(--border); }
+    .btn-outline:hover { border-color:var(--blue); color:var(--blue); }
+    .btn-sm { padding:5px 11px; font-size:0.8rem; }
+
+    /* ALERTS */
+    .alert-item { display:flex; align-items:flex-start; gap:11px; padding:12px; border-radius:var(--radius-sm); margin-bottom:9px; }
+    .alert-item.warning { background:var(--amber-light); border:1px solid #FDE68A; }
+    .alert-item.danger { background:var(--red-light); border:1px solid #FECACA; }
+    .alert-icon { font-size:0.9rem; flex-shrink:0; margin-top:1px; }
+    .alert-text { font-size:0.83rem; color:var(--text); }
+    .alert-text strong { font-weight:600; }
+    .alert-text small { display:block; color:var(--text-muted); margin-top:2px; font-size:0.75rem; }
+
+    /* EMPTY STATE */
+    .empty-state { text-align:center; padding:40px 24px; color:var(--text-muted); }
+    .empty-state svg { margin-bottom:14px; opacity:0.25; }
+    .empty-state h3 { font-size:0.95rem; font-weight:600; color:var(--text); margin-bottom:5px; }
+    .empty-state p { font-size:0.83rem; }
+
+    /* MAP */
+    #map { height:500px; }
+    .leaflet-container { border-radius:0; }
+
+    /* PAGES */
+    .page { display:none; }
+    .page.active { display:block; }
+
+    /* SIDEBAR OVERLAY */
+    .sidebar-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:99; }
+
+    /* MODALS */
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(10,14,23,0.55); backdrop-filter:blur(2px); z-index:200; align-items:center; justify-content:center; padding:16px; }
+    .modal-overlay.open { display:flex; }
+    .modal { background:white; border-radius:var(--radius); padding:26px; width:100%; max-width:520px; max-height:90vh; overflow-y:auto; box-shadow:var(--shadow-md); animation:modalIn 0.2s ease; }
+    @keyframes modalIn { from{opacity:0;transform:scale(0.96) translateY(8px)} to{opacity:1;transform:none} }
+    .modal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:22px; }
+    .modal-title { font-family:'Syne',sans-serif; font-size:1.05rem; font-weight:700; color:var(--ink); }
+    .modal-close { background:none; border:none; cursor:pointer; color:var(--text-muted); font-size:1rem; padding:4px 8px; border-radius:4px; transition:color 0.15s; }
+    .modal-close:hover { color:var(--text); background:#F3F4F6; }
+    .modal-footer { display:flex; gap:10px; justify-content:flex-end; margin-top:22px; padding-top:18px; border-top:1px solid var(--border); }
+    .modal .form-group input, .modal .form-group select, .modal .form-group textarea { background:white; }
+
+    /* FILTER ROW */
+    .filter-row { display:flex; gap:9px; flex-wrap:wrap; align-items:center; margin-bottom:18px; }
+    .filter-row input, .filter-row select {
+      padding:8px 13px; border:1.5px solid var(--border); border-radius:var(--radius-sm);
+      font-family:'DM Sans',sans-serif; font-size:0.855rem; color:var(--text); outline:none;
+      background:white; transition:border-color 0.2s;
+    }
+    .filter-row input:focus, .filter-row select:focus { border-color:var(--blue); }
+    .filter-row input[type="text"] { width:220px; }
+
+    /* RESPONSIVE */
+    @media(max-width:900px) {
+      .sidebar { transform:translateX(-100%); }
+      .sidebar.open { transform:translateX(0); }
+      .sidebar-overlay.show { display:block; }
+      .main-content { margin-left:0; }
+      .topbar-burger { display:flex; }
+      .content-grid { grid-template-columns:1fr; }
+      .content-grid.thirds { grid-template-columns:1fr; }
+      .stats-grid { grid-template-columns:1fr 1fr; }
+      .page-content { padding:14px; }
+      .topbar { padding:0 14px; }
+    }
+    @media(max-width:480px) {
+      .stats-grid { grid-template-columns:1fr; }
+      .login-brand { display:none; }
+      .filter-row input[type="text"] { width:160px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- LOADING -->
+<div class="loading-screen" id="loading">
+  <div class="loading-logo">Bureau<span>Desk</span></div>
+  <div class="loading-bar"><div class="loading-bar-fill"></div></div>
+</div>
+
+<!-- ============================================================
+     LOGIN PAGE
+============================================================ -->
+<div id="page-login">
+  <div class="login-split">
+    <div class="login-brand">
+      <div class="login-brand-logo">
+        <div class="login-brand-icon">
+          <svg width="20" height="20" fill="none" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" stroke="white" stroke-width="2"/><path d="M8 21h8M12 17v4" stroke="white" stroke-width="2" stroke-linecap="round"/></svg>
+        </div>
+        <span class="login-brand-name">Bureau<span>Desk</span></span>
+      </div>
+      <div class="login-brand-headline">
+        <h2>Pilotez votre <em>activité commerciale</em> sans effort</h2>
+        <p>L'outil taillé pour les équipes commerciales spécialisées en fournitures et mobilier de bureau.</p>
+      </div>
+      <div class="login-brand-features">
+        <div class="login-feature"><div class="login-feature-dot"></div>Suivi des tournées et visites en temps réel</div>
+        <div class="login-feature"><div class="login-feature-dot"></div>Pipeline devis avec alertes de relance</div>
+        <div class="login-feature"><div class="login-feature-dot"></div>Carte géographique de vos zones</div>
+        <div class="login-feature"><div class="login-feature-dot"></div>Emails de relance en 2 clics</div>
+        <div class="login-feature"><div class="login-feature-dot"></div>Dashboard direction en temps réel</div>
+      </div>
+    </div>
+    <div class="login-form-panel">
+      <div class="login-form-box">
+        <h1>Connexion</h1>
+        <p class="login-subtitle">Entrez vos identifiants pour accéder à votre espace.</p>
+        <div class="login-error" id="login-error">Email ou mot de passe incorrect.</div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" id="login-email" placeholder="vous@entreprise.fr" autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label>Mot de passe</label>
+          <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password">
+        </div>
+        <button class="btn-primary" id="btn-login" onclick="handleLogin()">Se connecter</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     APP SHELL
+============================================================ -->
+<div id="app">
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo" onclick="navigate('dashboard')">
+      <div class="sidebar-logo-icon">
+        <svg width="17" height="17" fill="none" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2" stroke="white" stroke-width="2"/><path d="M8 21h8M12 17v4" stroke="white" stroke-width="2" stroke-linecap="round"/></svg>
+      </div>
+      <span class="sidebar-logo-text">Bureau<span>Desk</span></span>
+    </div>
+
+    <nav class="sidebar-nav">
+      <div class="sidebar-section-label">Principal</div>
+      <button class="nav-item active" id="nav-dashboard" onclick="navigate('dashboard')">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2"/><rect x="14" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2"/></svg>
+        Tableau de bord
+      </button>
+
+      <div class="sidebar-section-label">Commercial</div>
+      <button class="nav-item" id="nav-clients" onclick="navigate('clients')">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2"/><path d="M3 21v-1a6 6 0 0 1 6-6h0a6 6 0 0 1 6 6v1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        Clients
+      </button>
+      <button class="nav-item" id="nav-prospects" onclick="navigate('prospects')">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2"/><path d="M4 20v-1a8 8 0 0 1 8-8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M19 16v6M16 19h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        Prospects
+      </button>
+      <button class="nav-item" id="nav-tournees" onclick="navigate('tournees')">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="9" r="2.5" stroke="currentColor" stroke-width="2"/></svg>
+        Tournées
+      </button>
+      <button class="nav-item" id="nav-devis" onclick="navigate('devis')">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" stroke="currentColor" stroke-width="2"/><path d="M14 2v6h6M9 13h6M9 17h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        Devis
+        <span class="nav-badge" id="badge-devis" style="display:none">0</span>
+      </button>
+      <button class="nav-item" id="nav-emails" onclick="navigate('emails')">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" stroke-width="2"/><path d="M2 8l10 6 10-6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        Emails
+      </button>
+      <button class="nav-item" id="nav-carte" onclick="navigate('carte')">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="8" y1="2" x2="8" y2="18" stroke="currentColor" stroke-width="2"/><line x1="16" y1="6" x2="16" y2="22" stroke="currentColor" stroke-width="2"/></svg>
+        Carte
+      </button>
+    </nav>
+
+    <div class="sidebar-bottom">
+      <button class="nav-item" id="nav-parametres" onclick="navigate('parametres')" style="margin-bottom:6px;">
+        <svg width="16" height="16" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        Paramètres
+      </button>
+      <div class="sidebar-user">
+        <div class="user-avatar" id="user-avatar">--</div>
+        <div class="user-info">
+          <div class="user-name" id="user-name">Chargement...</div>
+          <div class="user-role" id="user-role-label">—</div>
+        </div>
+        <button class="btn-logout" onclick="handleLogout()" title="Déconnexion">
+          <svg width="15" height="15" fill="none" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><polyline points="16 17 21 12 16 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><line x1="21" y1="12" x2="9" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main-content">
+    <div class="topbar">
+      <button class="topbar-burger" onclick="openSidebar()">
+        <svg width="20" height="20" fill="none" viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="3" y1="12" x2="21" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="3" y1="18" x2="21" y2="18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+      <span class="topbar-title" id="topbar-title">Tableau de bord</span>
+      <div class="topbar-right">
+        <div class="topbar-notif" id="topbar-notif" title="Alertes">
+          <svg width="15" height="15" fill="none" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" stroke="currentColor" stroke-width="2"/><path d="M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          <div class="notif-dot" id="notif-dot" style="display:none"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="page-content">
+
+      <!-- ============================
+           DASHBOARD
+      ============================ -->
+      <div class="page active" id="page-dashboard">
+        <div class="page-header">
+          <div class="page-header-left">
+            <h1>Tableau de bord</h1>
+            <p id="dashboard-greeting">Bonjour — voici votre activité</p>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-card-top">
+              <div class="stat-icon blue"><svg width="18" height="18" fill="none" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" stroke="currentColor" stroke-width="2"/></svg></div>
+              <span class="stat-trend neutral">Ce mois</span>
+            </div>
+            <div class="stat-value" id="stat-devis">—</div>
+            <div class="stat-label">Devis en cours</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-top">
+              <div class="stat-icon green"><svg width="18" height="18" fill="none" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" stroke="currentColor" stroke-width="2"/></svg></div>
+              <span class="stat-trend neutral">Cette semaine</span>
+            </div>
+            <div class="stat-value" id="stat-visites">—</div>
+            <div class="stat-label">Visites effectuées</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-top">
+              <div class="stat-icon amber"><svg width="18" height="18" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="2"/><path d="M4 20v-1a8 8 0 0 1 8-8v0a8 8 0 0 1 8 8v1" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div>
+              <span class="stat-trend neutral">Total</span>
+            </div>
+            <div class="stat-value" id="stat-prospects">—</div>
+            <div class="stat-label">Prospects actifs</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-card-top">
+              <div class="stat-icon red"><svg width="18" height="18" fill="none" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" stroke="currentColor" stroke-width="2"/><line x1="12" y1="9" x2="12" y2="13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="17" x2="12.01" y2="17" stroke="currentColor" stroke-width="2"/></svg></div>
+              <span class="stat-trend down" id="stat-alertes-trend">!</span>
+            </div>
+            <div class="stat-value" id="stat-alertes">—</div>
+            <div class="stat-label">Alertes en attente</div>
+          </div>
+        </div>
+
+        <div class="content-grid thirds">
+          <div class="card">
+            <div class="card-header">
+              <div><div class="card-title">Dernières visites</div><div class="card-subtitle">Vos 5 dernières visites</div></div>
+              <button class="btn btn-outline btn-sm" onclick="navigate('tournees')">Voir tout</button>
+            </div>
+            <div id="recent-visits-container">
+              <div class="empty-state"><svg width="36" height="36" fill="none" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" stroke="currentColor" stroke-width="1.5"/></svg><h3>Aucune visite</h3><p>Les visites apparaîtront ici</p></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <div><div class="card-title">Alertes</div><div class="card-subtitle">À traiter en priorité</div></div>
+            </div>
+            <div id="alerts-container">
+              <div class="empty-state"><svg width="36" height="36" fill="none" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" stroke="currentColor" stroke-width="1.5"/></svg><h3>Aucune alerte</h3><p>Tout est à jour ✓</p></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================
+           CLIENTS
+      ============================ -->
+      <div class="page" id="page-clients">
+        <div class="page-header">
+          <div class="page-header-left"><h1>Clients</h1><p>Gestion de vos clients actifs</p></div>
+          <button class="btn btn-blue" onclick="openModal('modal-client')">
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            Nouveau client
+          </button>
+        </div>
+        <div class="card">
+          <div class="filter-row">
+            <input type="text" id="search-clients" placeholder="Rechercher un client..." oninput="filterClients()">
+            <select id="filter-client-zone" onchange="filterClients()"><option value="">Toutes les zones</option></select>
+            <select id="filter-client-statut" onchange="filterClients()"><option value="">Tous les statuts</option><option>Client actif</option><option>Inactif</option></select>
+          </div>
+          <table class="data-table">
+            <thead><tr><th>Société</th><th>Contact</th><th>Zone</th><th>Téléphone</th><th>Statut</th><th></th></tr></thead>
+            <tbody id="clients-tbody"><tr><td colspan="6"><div class="empty-state"><h3>Aucun client</h3><p>Ajoutez votre premier client</p></div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ============================
+           PROSPECTS
+      ============================ -->
+      <div class="page" id="page-prospects">
+        <div class="page-header">
+          <div class="page-header-left"><h1>Prospects</h1><p>Suivi de vos prospects en cours</p></div>
+          <button class="btn btn-blue" onclick="openModal('modal-prospect')">
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            Nouveau prospect
+          </button>
+        </div>
+        <div class="card">
+          <div class="filter-row">
+            <input type="text" id="search-prospects" placeholder="Rechercher un prospect..." oninput="filterProspects()">
+            <select id="filter-prospect-statut" onchange="filterProspects()">
+              <option value="">Tous les statuts</option><option>En cours</option><option>Contacté</option><option>RDV planifié</option><option>Sans suite</option>
+            </select>
+          </div>
+          <table class="data-table">
+            <thead><tr><th>Société</th><th>Contact</th><th>Zone</th><th>Téléphone</th><th>Statut</th><th>Dernière action</th><th></th></tr></thead>
+            <tbody id="prospects-tbody"><tr><td colspan="7"><div class="empty-state"><h3>Aucun prospect</h3><p>Ajoutez votre premier prospect</p></div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ============================
+           TOURNÉES
+      ============================ -->
+      <div class="page" id="page-tournees">
+        <div class="page-header">
+          <div class="page-header-left"><h1>Tournées</h1><p>Historique et suivi de vos visites</p></div>
+          <button class="btn btn-blue" onclick="openModal('modal-visite')">
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            Nouvelle visite
+          </button>
+        </div>
+        <div class="card">
+          <div class="filter-row">
+            <input type="date" id="filter-visite-date" onchange="filterVisites()" style="width:auto;">
+            <select id="filter-visite-type" onchange="filterVisites()"><option value="">Tous les types</option><option>Physique</option><option>Téléphone</option></select>
+            <select id="filter-visite-resultat" onchange="filterVisites()"><option value="">Tous les résultats</option><option>RDV obtenu</option><option>Devis à faire</option><option>Relance prévue</option><option>Sans suite</option></select>
+          </div>
+          <table class="data-table">
+            <thead><tr><th>Client / Prospect</th><th>Date</th><th>Type</th><th>Résultat</th><th>Commercial</th><th>Notes</th><th></th></tr></thead>
+            <tbody id="visites-tbody"><tr><td colspan="7"><div class="empty-state"><h3>Aucune visite</h3><p>Enregistrez votre première visite</p></div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ============================
+           DEVIS
+      ============================ -->
+      <div class="page" id="page-devis">
+        <div class="page-header">
+          <div class="page-header-left"><h1>Devis</h1><p>Suivi de tous vos devis déposés</p></div>
+          <button class="btn btn-blue" onclick="openModal('modal-devis')">
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            Nouveau devis
+          </button>
+        </div>
+
+        <div class="stats-grid" style="grid-template-columns:repeat(4,1fr)">
+          <div class="stat-card"><div class="stat-icon blue" style="width:34px;height:34px;margin-bottom:6px;"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"/><path d="M12 8v4l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div><div class="stat-value" id="stat-devis-enattente">—</div><div class="stat-label">En attente</div></div>
+          <div class="stat-card"><div class="stat-icon amber" style="width:34px;height:34px;margin-bottom:6px;"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div><div class="stat-value" id="stat-devis-relance">—</div><div class="stat-label">À relancer</div></div>
+          <div class="stat-card"><div class="stat-icon green" style="width:34px;height:34px;margin-bottom:6px;"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div class="stat-value" id="stat-devis-gagnes">—</div><div class="stat-label">Gagnés</div></div>
+          <div class="stat-card"><div class="stat-icon blue" style="width:34px;height:34px;margin-bottom:6px;"><svg width="16" height="16" fill="none" viewBox="0 0 24 24"><line x1="12" y1="1" x2="12" y2="23" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></div><div class="stat-value" id="stat-devis-montant">—</div><div class="stat-label">CA en cours (€)</div></div>
+        </div>
+
+        <div class="card">
+          <div class="filter-row">
+            <input type="text" id="search-devis" placeholder="Référence, client..." oninput="filterDevis()">
+            <select id="filter-devis-statut" onchange="filterDevis()"><option value="">Tous les statuts</option><option>Déposé</option><option>En attente retour</option><option>Relancé</option><option>Gagné</option><option>Perdu</option><option>Annulé</option></select>
+            <select id="filter-devis-type" onchange="filterDevis()"><option value="">Tous les types</option><option>Annuel</option><option>One-shot</option></select>
+          </div>
+          <table class="data-table">
+            <thead><tr><th>Client</th><th>Référence</th><th>Type</th><th>Montant</th><th>Déposé le</th><th>Statut</th><th></th></tr></thead>
+            <tbody id="devis-tbody"><tr><td colspan="7"><div class="empty-state"><h3>Aucun devis</h3><p>Uploadez votre premier devis</p></div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ============================
+           EMAILS
+      ============================ -->
+      <div class="page" id="page-emails">
+        <div class="page-header">
+          <div class="page-header-left"><h1>Emails</h1><p>Templates de relance et prise de RDV</p></div>
+        </div>
+        <div class="content-grid" style="margin-bottom:18px;">
+          <div class="card">
+            <div class="card-header"><div><div class="card-title">Relance devis</div><div class="card-subtitle">Relancer un devis sans retour</div></div></div>
+            <div class="form-group"><label>Devis à relancer</label>
+              <select id="email-devis-select" onchange="prefillRelance()"><option value="">-- Choisir un devis --</option></select>
+            </div>
+            <div class="form-group"><label>Email destinataire</label><input type="email" id="email-relance-to" placeholder="client@entreprise.fr"></div>
+            <div class="form-group"><label>Message</label><textarea id="email-relance-body" rows="5" style="resize:vertical;"></textarea></div>
+            <button class="btn btn-blue" style="width:100%" onclick="sendEmail('relance')">
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13" stroke="currentColor" stroke-width="2"/><polygon points="22 2 15 22 11 13 2 9 22 2" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+              Envoyer la relance
+            </button>
+          </div>
+          <div class="card">
+            <div class="card-header"><div><div class="card-title">Prise de RDV</div><div class="card-subtitle">Contacter un prospect pour un RDV</div></div></div>
+            <div class="form-group"><label>Prospect</label>
+              <select id="email-prospect-select" onchange="prefillRdv()"><option value="">-- Choisir un prospect --</option></select>
+            </div>
+            <div class="form-group"><label>Email destinataire</label><input type="email" id="email-rdv-to" placeholder="prospect@entreprise.fr"></div>
+            <div class="form-group"><label>Message</label><textarea id="email-rdv-body" rows="5" style="resize:vertical;"></textarea></div>
+            <button class="btn btn-blue" style="width:100%" onclick="sendEmail('rdv')">
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13" stroke="currentColor" stroke-width="2"/><polygon points="22 2 15 22 11 13 2 9 22 2" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+              Envoyer le message
+            </button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Historique des envois</div></div>
+          <table class="data-table">
+            <thead><tr><th>Destinataire</th><th>Type</th><th>Sujet</th><th>Date</th><th>Statut</th></tr></thead>
+            <tbody id="emails-tbody"><tr><td colspan="5"><div class="empty-state"><h3>Aucun email envoyé</h3></div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ============================
+           CARTE
+      ============================ -->
+      <div class="page" id="page-carte">
+        <div class="page-header">
+          <div class="page-header-left"><h1>Carte</h1><p>Visualisation géographique de vos zones</p></div>
+        </div>
+        <div class="card" style="margin-bottom:14px;">
+          <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+            <select id="carte-filter-type" onchange="updateMap()" style="padding:7px 12px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-size:0.855rem;outline:none;">
+              <option value="all">Tout afficher</option>
+              <option value="clients">Clients uniquement</option>
+              <option value="prospects">Prospects uniquement</option>
+            </select>
+            <div style="display:flex;gap:12px;align-items:center;font-size:0.8rem;color:var(--text-muted);">
+              <span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:50%;background:var(--blue);display:inline-block;"></span>Clients</span>
+              <span style="display:inline-flex;align-items:center;gap:5px;"><span style="width:10px;height:10px;border-radius:50%;background:var(--amber);display:inline-block;"></span>Prospects</span>
+            </div>
+            <span style="font-size:0.78rem;color:var(--text-muted);margin-left:auto;">💡 Les coordonnées GPS sont renseignées à la création du client/prospect</span>
+          </div>
+        </div>
+        <div class="card" style="padding:0;overflow:hidden;">
+          <div id="map"></div>
+        </div>
+      </div>
+
+      <!-- ============================
+           PARAMÈTRES
+      ============================ -->
+      <div class="page" id="page-parametres">
+        <div class="page-header">
+          <div class="page-header-left"><h1>Paramètres</h1><p>Configuration de votre espace</p></div>
+        </div>
+        <div class="content-grid" style="margin-bottom:18px;">
+          <div class="card">
+            <div class="card-header"><div class="card-title">Mon profil</div></div>
+            <div class="form-group"><label>Prénom & Nom</label><input type="text" id="param-nom"></div>
+            <div class="form-group"><label>Email</label><input type="email" id="param-email" disabled style="opacity:0.6;cursor:not-allowed;"></div>
+            <div class="form-group"><label>Rôle</label><input type="text" id="param-role" disabled style="opacity:0.6;cursor:not-allowed;"></div>
+            <button class="btn btn-blue" onclick="saveProfile()">Enregistrer le profil</button>
+          </div>
+          <div class="card">
+            <div class="card-header"><div class="card-title">Alertes & Relances</div></div>
+            <div class="form-group"><label>Alerter si devis sans retour après (jours)</label><input type="number" id="param-alerte-jours" value="7" min="1" max="60"></div>
+            <div class="form-group"><label>Alerter si prospect sans contact après (jours)</label><input type="number" id="param-prospect-jours" value="30" min="7" max="90"></div>
+            <button class="btn btn-blue" onclick="saveSettings()">Enregistrer</button>
+          </div>
+        </div>
+        <div class="card" id="section-users" style="display:none;">
+          <div class="card-header">
+            <div><div class="card-title">Gestion des utilisateurs</div><div class="card-subtitle">Commerciaux et directeurs de votre équipe</div></div>
+            <button class="btn btn-outline btn-sm" onclick="openModal('modal-invite')">+ Inviter</button>
+          </div>
+          <table class="data-table">
+            <thead><tr><th>Nom</th><th>Email</th><th>Rôle</th><th>Statut</th></tr></thead>
+            <tbody id="users-tbody"><tr><td colspan="4"><div class="empty-state"><h3>Chargement...</h3></div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+    </div><!-- /page-content -->
+  </main>
+</div>
+
+<!-- ============================================================
+     MODALS
+============================================================ -->
+
+<!-- Modal Client -->
+<div class="modal-overlay" id="modal-client">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title">Nouveau client</span><button class="modal-close" onclick="closeModal('modal-client')">✕</button></div>
+    <div class="form-group"><label>Nom de la société *</label><input type="text" id="c-nom" placeholder="Ex: Drôme Bureau SARL"></div>
+    <div class="form-group"><label>Nom du contact</label><input type="text" id="c-contact" placeholder="Prénom Nom"></div>
+    <div class="form-group"><label>Email</label><input type="email" id="c-email" placeholder="contact@societe.fr"></div>
+    <div class="form-group"><label>Téléphone</label><input type="tel" id="c-tel" placeholder="06 xx xx xx xx"></div>
+    <div class="form-group"><label>Adresse complète</label><input type="text" id="c-adresse" placeholder="Rue, ville, code postal"></div>
+    <div class="form-group"><label>Zone géographique</label><input type="text" id="c-zone" placeholder="Ex: Drôme Sud, Ardèche Nord..."></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="form-group"><label>Latitude (GPS)</label><input type="number" id="c-lat" placeholder="Ex: 44.93" step="0.0001"></div>
+      <div class="form-group"><label>Longitude (GPS)</label><input type="number" id="c-lng" placeholder="Ex: 4.89" step="0.0001"></div>
+    </div>
+    <div class="form-group"><label>Statut</label><select id="c-statut"><option value="Client actif">Client actif</option><option value="Inactif">Inactif</option></select></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-client')">Annuler</button>
+      <button class="btn btn-blue" onclick="saveClient()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Prospect -->
+<div class="modal-overlay" id="modal-prospect">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title">Nouveau prospect</span><button class="modal-close" onclick="closeModal('modal-prospect')">✕</button></div>
+    <div class="form-group"><label>Nom de la société *</label><input type="text" id="p-nom" placeholder="Ex: Bureau Plus 26"></div>
+    <div class="form-group"><label>Nom du contact</label><input type="text" id="p-contact" placeholder="Prénom Nom"></div>
+    <div class="form-group"><label>Email</label><input type="email" id="p-email" placeholder="contact@societe.fr"></div>
+    <div class="form-group"><label>Téléphone</label><input type="tel" id="p-tel" placeholder="06 xx xx xx xx"></div>
+    <div class="form-group"><label>Adresse complète</label><input type="text" id="p-adresse" placeholder="Rue, ville, code postal"></div>
+    <div class="form-group"><label>Zone géographique</label><input type="text" id="p-zone" placeholder="Ex: Drôme Nord, Valence..."></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="form-group"><label>Latitude (GPS)</label><input type="number" id="p-lat" placeholder="Ex: 44.93" step="0.0001"></div>
+      <div class="form-group"><label>Longitude (GPS)</label><input type="number" id="p-lng" placeholder="Ex: 4.89" step="0.0001"></div>
+    </div>
+    <div class="form-group"><label>Statut</label><select id="p-statut"><option>En cours</option><option>Contacté</option><option>RDV planifié</option><option>Sans suite</option></select></div>
+    <div class="form-group"><label>Notes</label><textarea id="p-notes" rows="3" placeholder="Informations complémentaires..."></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-prospect')">Annuler</button>
+      <button class="btn btn-blue" onclick="saveProspect()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Visite -->
+<div class="modal-overlay" id="modal-visite">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title">Nouvelle visite</span><button class="modal-close" onclick="closeModal('modal-visite')">✕</button></div>
+    <div class="form-group"><label>Client / Prospect *</label><select id="v-contact-id"><option value="">-- Sélectionner --</option></select></div>
+    <div class="form-group"><label>Date et heure *</label><input type="datetime-local" id="v-date"></div>
+    <div class="form-group"><label>Type</label><select id="v-type"><option>Physique</option><option>Téléphone</option></select></div>
+    <div class="form-group"><label>Résultat</label><select id="v-resultat"><option>RDV obtenu</option><option>Devis à faire</option><option>Relance prévue</option><option>Sans suite</option></select></div>
+    <div class="form-group"><label>Notes / Compte-rendu</label><textarea id="v-notes" rows="4" placeholder="Résumé de la visite, points abordés..."></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-visite')">Annuler</button>
+      <button class="btn btn-blue" onclick="saveVisite()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Devis -->
+<div class="modal-overlay" id="modal-devis">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title">Nouveau devis</span><button class="modal-close" onclick="closeModal('modal-devis')">✕</button></div>
+    <div class="form-group"><label>Client *</label><select id="d-client-id"><option value="">-- Sélectionner un client --</option></select></div>
+    <div class="form-group"><label>Référence du devis</label><input type="text" id="d-ref" placeholder="Ex: DEV-2024-001"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+      <div class="form-group"><label>Type</label><select id="d-type"><option>One-shot</option><option>Annuel</option></select></div>
+      <div class="form-group"><label>Montant (€)</label><input type="number" id="d-montant" placeholder="0.00" step="0.01" min="0"></div>
+    </div>
+    <div class="form-group"><label>Date de dépôt *</label><input type="date" id="d-date"></div>
+    <div class="form-group"><label>Statut</label><select id="d-statut"><option>Déposé</option><option>En attente retour</option><option>Relancé</option><option>Gagné</option><option>Perdu</option><option>Annulé</option></select></div>
+    <div class="form-group"><label>PDF du devis</label><input type="file" id="d-pdf" accept=".pdf"></div>
+    <div class="form-group"><label>Notes</label><textarea id="d-notes" rows="2" placeholder="Commentaires..."></textarea></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-devis')">Annuler</button>
+      <button class="btn btn-blue" onclick="saveDevis()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Invite -->
+<div class="modal-overlay" id="modal-invite">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title">Inviter un utilisateur</span><button class="modal-close" onclick="closeModal('modal-invite')">✕</button></div>
+    <div class="form-group"><label>Email *</label><input type="email" id="invite-email" placeholder="commercial@entreprise.fr"></div>
+    <div class="form-group"><label>Rôle</label><select id="invite-role"><option value="commercial">Commercial</option><option value="directeur">Directeur</option></select></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-invite')">Annuler</button>
+      <button class="btn btn-blue" onclick="inviteUser()">Envoyer l'invitation</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============================================================
+     JAVASCRIPT
+============================================================ -->
+<script>
+  // ============================================
+  // ⚙️  CONFIG SUPABASE — À REMPLIR
+  // ============================================
+  const SUPABASE_URL = 'VOTRE_SUPABASE_URL';
+  const SUPABASE_ANON_KEY = 'VOTRE_SUPABASE_ANON_KEY';
+
+  const { createClient } = supabase;
+  const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+  // ============================================
+  // STATE
+  // ============================================
+  let currentUser = null;
+  let currentUserProfile = null;
+  let mapInstance = null;
+  let allClients = [];
+  let allProspects = [];
+  let allVisites = [];
+  let allDevis = [];
+  let alerteJours = 7;
+  let prospectJours = 30;
+
+  // ============================================
+  // INIT
+  // ============================================
+  window.addEventListener('DOMContentLoaded', async () => {
+    await new Promise(r => setTimeout(r, 1200));
+    const { data: { session } } = await sb.auth.getSession();
+    hideLoading();
+
+    if (session) {
+      currentUser = session.user;
+      await initApp();
+    } else {
+      showLogin();
+    }
+
+    sb.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN') { currentUser = session.user; await initApp(); }
+      else if (event === 'SIGNED_OUT') { showLogin(); resetApp(); }
+    });
+  });
+
+  function hideLoading() {
+    const l = document.getElementById('loading');
+    l.style.opacity = '0';
+    setTimeout(() => l.style.display = 'none', 400);
+  }
+
+  function showLogin() {
+    document.getElementById('app').classList.remove('active');
+    document.getElementById('page-login').classList.add('active');
+  }
+
+  function resetApp() {
+    allClients = []; allProspects = []; allVisites = []; allDevis = [];
+    currentUser = null; currentUserProfile = null;
+  }
+
+  async function initApp() {
+    document.getElementById('page-login').classList.remove('active');
+    document.getElementById('app').classList.add('active');
+    loadSettings();
+    await loadUserProfile();
+    await loadAllData();
+    updateDashboard();
+    updateDevisStats();
+    // Set today as default date for visit modal
+    document.getElementById('v-date').value = new Date().toISOString().slice(0,16);
+    document.getElementById('d-date').value = new Date().toISOString().slice(0,10);
+  }
+
+  // ============================================
+  // AUTH
+  // ============================================
+  async function handleLogin() {
+    const email = document.getElementById('login-email').value.trim();
+    const password = document.getElementById('login-password').value;
+    const btn = document.getElementById('btn-login');
+    const err = document.getElementById('login-error');
+    if (!email || !password) { showLoginError('Veuillez remplir tous les champs.'); return; }
+    btn.disabled = true; btn.textContent = 'Connexion...';
+    err.classList.remove('show');
+    const { error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) { showLoginError('Email ou mot de passe incorrect.'); btn.disabled=false; btn.textContent='Se connecter'; }
+  }
+
+  function showLoginError(msg) { const e = document.getElementById('login-error'); e.textContent=msg; e.classList.add('show'); }
+  async function handleLogout() { await sb.auth.signOut(); }
+
+  document.getElementById('login-password').addEventListener('keydown', e => { if(e.key==='Enter') handleLogin(); });
+
+  // ============================================
+  // USER PROFILE
+  // ============================================
+  async function loadUserProfile() {
+    if (!currentUser) return;
+    const { data } = await sb.from('users').select('*').eq('id', currentUser.id).maybeSingle();
+    currentUserProfile = data || {};
+    const name = data?.nom || currentUser.email.split('@')[0];
+    const role = data?.role || 'commercial';
+    const initials = name.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
+    document.getElementById('user-name').textContent = name;
+    document.getElementById('user-role-label').textContent = role === 'directeur' ? 'Directeur' : role === 'admin' ? 'Admin' : 'Commercial';
+    document.getElementById('user-avatar').textContent = initials;
+    document.getElementById('param-nom').value = name;
+    document.getElementById('param-email').value = currentUser.email;
+    document.getElementById('param-role').value = role === 'directeur' ? 'Directeur' : 'Commercial';
+    document.getElementById('dashboard-greeting').textContent = `Bonjour ${name.split(' ')[0]} — voici votre activité`;
+    if (role === 'directeur' || role === 'admin') {
+      document.getElementById('section-users').style.display = 'block';
+      loadUsers();
+    }
+  }
+
+  // ============================================
+  // DATA LOADING
+  // ============================================
+  async function loadAllData() {
+    await Promise.all([loadClients(), loadProspects(), loadVisites(), loadDevis(), loadEmails()]);
+  }
+
+  async function loadClients() {
+    const { data } = await sb.from('clients').select('*').order('nom');
+    allClients = data || [];
+    renderClients(allClients);
+    populateSelects();
+  }
+
+  async function loadProspects() {
+    const { data } = await sb.from('prospects').select('*').order('nom');
+    allProspects = data || [];
+    renderProspects(allProspects);
+    populateSelects();
+  }
+
+  async function loadVisites() {
+    const { data } = await sb.from('visites').select('*, clients(nom,email), prospects(nom,email)').order('date', {ascending:false});
+    allVisites = data || [];
+    renderVisites(allVisites);
+  }
+
+  async function loadDevis() {
+    const { data } = await sb.from('devis').select('*, clients(nom,email)').order('date_depot', {ascending:false});
+    allDevis = data || [];
+    renderDevis(allDevis);
+    updateDevisStats();
+  }
+
+  async function loadEmails() {
+    const { data } = await sb.from('emails_envoyes').select('*').order('date', {ascending:false}).limit(30);
+    renderEmails(data || []);
+  }
+
+  async function loadUsers() {
+    const { data } = await sb.from('users').select('*').order('nom');
+    const tbody = document.getElementById('users-tbody');
+    if (!data?.length) { tbody.innerHTML='<tr><td colspan="4"><div class="empty-state"><h3>Aucun utilisateur</h3></div></td></tr>'; return; }
+    tbody.innerHTML = data.map(u=>`
+      <tr>
+        <td><strong>${u.nom||'—'}</strong></td>
+        <td>${u.email||'—'}</td>
+        <td><span class="badge ${u.role==='directeur'?'badge-blue':'badge-gray'}">${u.role||'commercial'}</span></td>
+        <td><span class="badge badge-green">Actif</span></td>
+      </tr>`).join('');
+  }
+
+  // ============================================
+  // RENDER
+  // ============================================
+  const resultBadge = {'RDV obtenu':'badge-green','Devis à faire':'badge-blue','Relance prévue':'badge-amber','Sans suite':'badge-gray'};
+  const devisBadge = {'Déposé':'badge-blue','En attente retour':'badge-amber','Relancé':'badge-purple','Gagné':'badge-green','Perdu':'badge-red','Annulé':'badge-gray'};
+  const prospectBadge = {'En cours':'badge-blue','Contacté':'badge-amber','RDV planifié':'badge-purple','Sans suite':'badge-gray'};
+
+  function renderClients(list) {
+    const t = document.getElementById('clients-tbody');
+    if (!list.length) { t.innerHTML='<tr><td colspan="6"><div class="empty-state"><h3>Aucun client</h3><p>Ajoutez votre premier client</p></div></td></tr>'; return; }
+    t.innerHTML = list.map(c=>`<tr>
+      <td><strong>${c.nom}</strong></td>
+      <td>${c.contact||'—'}</td>
+      <td>${c.zone||'—'}</td>
+      <td>${c.telephone||'—'}</td>
+      <td><span class="badge ${c.statut==='Client actif'?'badge-green':'badge-gray'}">${c.statut}</span></td>
+      <td><button class="btn btn-outline btn-sm" onclick="openFicheClient('${c.id}')">Fiche</button></td>
+    </tr>`).join('');
+  }
+
+  function renderProspects(list) {
+    const t = document.getElementById('prospects-tbody');
+    if (!list.length) { t.innerHTML='<tr><td colspan="7"><div class="empty-state"><h3>Aucun prospect</h3><p>Ajoutez votre premier prospect</p></div></td></tr>'; return; }
+    t.innerHTML = list.map(p=>`<tr>
+      <td><strong>${p.nom}</strong></td>
+      <td>${p.contact||'—'}</td>
+      <td>${p.zone||'—'}</td>
+      <td>${p.telephone||'—'}</td>
+      <td><span class="badge ${prospectBadge[p.statut]||'badge-gray'}">${p.statut}</span></td>
+      <td>${p.updated_at?new Date(p.updated_at).toLocaleDateString('fr-FR'):'—'}</td>
+      <td><button class="btn btn-outline btn-sm" onclick="openFicheProspect('${p.id}')">Fiche</button></td>
+    </tr>`).join('');
+  }
+
+  function renderVisites(list) {
+    const t = document.getElementById('visites-tbody');
+    if (!list.length) { t.innerHTML='<tr><td colspan="7"><div class="empty-state"><h3>Aucune visite</h3></div></td></tr>'; return; }
+    t.innerHTML = list.map(v=>{
+      const nom = v.clients?.nom || v.prospects?.nom || '—';
+      const d = new Date(v.date);
+      return `<tr>
+        <td><strong>${nom}</strong></td>
+        <td>${d.toLocaleDateString('fr-FR')} ${d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</td>
+        <td><span class="badge ${v.type==='Physique'?'badge-blue':'badge-gray'}">${v.type}</span></td>
+        <td><span class="badge ${resultBadge[v.resultat]||'badge-gray'}">${v.resultat}</span></td>
+        <td>${v.commercial_nom||'—'}</td>
+        <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${v.notes||'—'}</td>
+        <td><button class="btn btn-outline btn-sm" onclick="editVisite('${v.id}')">Éditer</button></td>
+      </tr>`;
+    }).join('');
+  }
+
+  function renderDevis(list) {
+    const t = document.getElementById('devis-tbody');
+    if (!list.length) { t.innerHTML='<tr><td colspan="7"><div class="empty-state"><h3>Aucun devis</h3></div></td></tr>'; return; }
+    t.innerHTML = list.map(d=>`<tr>
+      <td><strong>${d.clients?.nom||'—'}</strong></td>
+      <td>${d.reference||'—'}</td>
+      <td><span class="badge ${d.type==='Annuel'?'badge-purple':'badge-blue'}">${d.type}</span></td>
+      <td>${d.montant?Number(d.montant).toLocaleString('fr-FR')+' €':'—'}</td>
+      <td>${d.date_depot?new Date(d.date_depot).toLocaleDateString('fr-FR'):'—'}</td>
+      <td><span class="badge ${devisBadge[d.statut]||'badge-gray'}">${d.statut}</span></td>
+      <td style="display:flex;gap:5px;flex-wrap:wrap;">
+        ${d.pdf_url?`<a href="${d.pdf_url}" target="_blank" class="btn btn-outline btn-sm">PDF</a>`:''}
+        <button class="btn btn-outline btn-sm" onclick="editDevis('${d.id}')">Éditer</button>
+      </td>
+    </tr>`).join('');
+  }
+
+  function renderEmails(list) {
+    const t = document.getElementById('emails-tbody');
+    if (!list.length) { t.innerHTML='<tr><td colspan="5"><div class="empty-state"><h3>Aucun email envoyé</h3></div></td></tr>'; return; }
+    t.innerHTML = list.map(e=>`<tr>
+      <td>${e.destinataire}</td>
+      <td><span class="badge ${e.type==='relance'?'badge-amber':'badge-blue'}">${e.type==='relance'?'Relance devis':'Prise de RDV'}</span></td>
+      <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${(e.contenu||'').split('\n')[0]}</td>
+      <td>${new Date(e.date).toLocaleDateString('fr-FR')}</td>
+      <td><span class="badge badge-green">Envoyé</span></td>
+    </tr>`).join('');
+  }
+
+  // ============================================
+  // DASHBOARD
+  // ============================================
+  function updateDashboard() {
+    const now = new Date();
+    const devisEnCours = allDevis.filter(d=>!['Gagné','Perdu','Annulé'].includes(d.statut));
+    document.getElementById('stat-devis').textContent = devisEnCours.length;
+
+    const weekAgo = new Date(now - 7*24*60*60*1000);
+    document.getElementById('stat-visites').textContent = allVisites.filter(v=>new Date(v.date)>=weekAgo).length;
+
+    document.getElementById('stat-prospects').textContent = allProspects.filter(p=>p.statut!=='Sans suite').length;
+
+    const alerteDevis = devisEnCours.filter(d => {
+      const jours = Math.floor((now - new Date(d.date_depot)) / (1000*60*60*24));
+      return jours >= alerteJours;
+    });
+    document.getElementById('stat-alertes').textContent = alerteDevis.length;
+
+    if (alerteDevis.length > 0) {
+      document.getElementById('badge-devis').textContent = alerteDevis.length;
+      document.getElementById('badge-devis').style.display = 'inline';
+      document.getElementById('notif-dot').style.display = 'block';
+    }
+
+    // Recent visits
+    const rv = allVisites.slice(0,5);
+    document.getElementById('recent-visits-container').innerHTML = rv.length
+      ? `<table class="data-table"><thead><tr><th>Contact</th><th>Date</th><th>Résultat</th></tr></thead><tbody>${
+          rv.map(v=>`<tr>
+            <td><strong>${v.clients?.nom||v.prospects?.nom||'—'}</strong></td>
+            <td>${new Date(v.date).toLocaleDateString('fr-FR')}</td>
+            <td><span class="badge ${resultBadge[v.resultat]||'badge-gray'}">${v.resultat}</span></td>
+          </tr>`).join('')
+        }</tbody></table>`
+      : `<div class="empty-state"><svg width="36" height="36" fill="none" viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" stroke="currentColor" stroke-width="1.5"/></svg><h3>Aucune visite</h3></div>`;
+
+    // Alerts
+    document.getElementById('alerts-container').innerHTML = alerteDevis.length
+      ? alerteDevis.slice(0,5).map(d=>`<div class="alert-item warning">
+          <div class="alert-icon">⚠️</div>
+          <div class="alert-text"><strong>Relance requise</strong> — ${d.clients?.nom||'—'}<small>Devis ${d.reference||''} — déposé le ${new Date(d.date_depot).toLocaleDateString('fr-FR')}</small></div>
+        </div>`).join('')
+      : `<div class="empty-state"><svg width="36" height="36" fill="none" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" stroke="currentColor" stroke-width="1.5"/></svg><h3>Aucune alerte</h3><p>Tout est à jour ✓</p></div>`;
+  }
+
+  function updateDevisStats() {
+    document.getElementById('stat-devis-enattente').textContent = allDevis.filter(d=>d.statut==='En attente retour').length;
+    document.getElementById('stat-devis-relance').textContent = allDevis.filter(d=>d.statut==='Relancé').length;
+    document.getElementById('stat-devis-gagnes').textContent = allDevis.filter(d=>d.statut==='Gagné').length;
+    const total = allDevis.filter(d=>!['Gagné','Perdu','Annulé'].includes(d.statut)).reduce((s,d)=>s+(Number(d.montant)||0),0);
+    document.getElementById('stat-devis-montant').textContent = total.toLocaleString('fr-FR');
+  }
+
+  // ============================================
+  // SAVE
+  // ============================================
+  async function saveClient() {
+    const nom = document.getElementById('c-nom').value.trim();
+    if (!nom) { alert('Le nom de la société est obligatoire'); return; }
+    const { error } = await sb.from('clients').insert({
+      nom, contact: val('c-contact'), email: val('c-email'),
+      telephone: val('c-tel'), adresse: val('c-adresse'),
+      zone: val('c-zone'), statut: val('c-statut'),
+      lat: parseFloat(val('c-lat'))||null,
+      lng: parseFloat(val('c-lng'))||null,
+      commercial_id: currentUser.id,
+    });
+    if (!error) { closeModal('modal-client'); clearForm(['c-nom','c-contact','c-email','c-tel','c-adresse','c-zone','c-lat','c-lng']); await loadClients(); updateDashboard(); }
+    else alert('Erreur : '+error.message);
+  }
+
+  async function saveProspect() {
+    const nom = document.getElementById('p-nom').value.trim();
+    if (!nom) { alert('Le nom de la société est obligatoire'); return; }
+    const { error } = await sb.from('prospects').insert({
+      nom, contact: val('p-contact'), email: val('p-email'),
+      telephone: val('p-tel'), adresse: val('p-adresse'),
+      zone: val('p-zone'), statut: val('p-statut'),
+      notes: val('p-notes'),
+      lat: parseFloat(val('p-lat'))||null,
+      lng: parseFloat(val('p-lng'))||null,
+      commercial_id: currentUser.id,
+    });
+    if (!error) { closeModal('modal-prospect'); clearForm(['p-nom','p-contact','p-email','p-tel','p-adresse','p-zone','p-notes','p-lat','p-lng']); await loadProspects(); updateDashboard(); }
+    else alert('Erreur : '+error.message);
+  }
+
+  async function saveVisite() {
+    const contactId = val('v-contact-id');
+    if (!contactId) { alert('Sélectionnez un client ou prospect'); return; }
+    const [type, id] = contactId.split('::');
+    const payload = {
+      date: val('v-date'), type: val('v-type'),
+      resultat: val('v-resultat'), notes: val('v-notes'),
+      commercial_id: currentUser.id,
+      commercial_nom: currentUserProfile?.nom || currentUser.email.split('@')[0],
+    };
+    if (type==='client') payload.client_id = id;
+    else payload.prospect_id = id;
+    const { error } = await sb.from('visites').insert(payload);
+    if (!error) {
+      closeModal('modal-visite');
+      document.getElementById('v-notes').value='';
+      await loadVisites(); updateDashboard();
+    } else alert('Erreur : '+error.message);
+  }
+
+  async function saveDevis() {
+    const clientId = val('d-client-id');
+    if (!clientId) { alert('Sélectionnez un client'); return; }
+    const file = document.getElementById('d-pdf').files[0];
+    let pdfUrl = null;
+    if (file) {
+      const filename = `devis/${currentUser.id}/${Date.now()}_${file.name}`;
+      const { error: ue } = await sb.storage.from('documents').upload(filename, file);
+      if (!ue) {
+        const { data: ud } = sb.storage.from('documents').getPublicUrl(filename);
+        pdfUrl = ud?.publicUrl;
+      }
+    }
+    const { error } = await sb.from('devis').insert({
+      client_id: clientId, reference: val('d-ref'),
+      type: val('d-type'), montant: parseFloat(val('d-montant'))||null,
+      date_depot: val('d-date'), statut: val('d-statut'),
+      notes: val('d-notes'), pdf_url: pdfUrl,
+      commercial_id: currentUser.id,
+      commercial_nom: currentUserProfile?.nom || currentUser.email.split('@')[0],
+    });
+    if (!error) { closeModal('modal-devis'); clearForm(['d-ref','d-montant','d-notes']); document.getElementById('d-pdf').value=''; await loadDevis(); updateDashboard(); }
+    else alert('Erreur : '+error.message);
+  }
+
+  async function saveProfile() {
+    const nom = val('param-nom');
+    const { error } = await sb.from('users').upsert({id:currentUser.id,nom,email:currentUser.email});
+    if (!error) { await loadUserProfile(); showToast('Profil mis à jour ✓'); }
+  }
+
+  function saveSettings() {
+    alerteJours = parseInt(val('param-alerte-jours'))||7;
+    prospectJours = parseInt(val('param-prospect-jours'))||30;
+    localStorage.setItem('bd_alerte_jours', alerteJours);
+    localStorage.setItem('bd_prospect_jours', prospectJours);
+    showToast('Paramètres enregistrés ✓');
+  }
+
+  function loadSettings() {
+    alerteJours = parseInt(localStorage.getItem('bd_alerte_jours'))||7;
+    prospectJours = parseInt(localStorage.getItem('bd_prospect_jours'))||30;
+    document.getElementById('param-alerte-jours').value = alerteJours;
+    document.getElementById('param-prospect-jours').value = prospectJours;
+  }
+
+  // ============================================
+  // EMAILS
+  // ============================================
+  function prefillRelance() {
+    const id = val('email-devis-select');
+    const d = allDevis.find(x=>x.id===id);
+    if (!d) return;
+    document.getElementById('email-relance-to').value = d.clients?.email||'';
+    document.getElementById('email-relance-body').value =
+      `Madame, Monsieur,\n\nJe me permets de revenir vers vous au sujet de notre devis ${d.reference||''}, d'un montant de ${d.montant?Number(d.montant).toLocaleString('fr-FR')+' €':'—'}, déposé le ${d.date_depot?new Date(d.date_depot).toLocaleDateString('fr-FR'):'—'}.\n\nAvez-vous pu en prendre connaissance ? Je reste disponible pour tout renseignement complémentaire ou pour convenir d'un rendez-vous à votre convenance.\n\nCordialement`;
+  }
+
+  function prefillRdv() {
+    const id = val('email-prospect-select');
+    const p = allProspects.find(x=>x.id===id);
+    if (!p) return;
+    document.getElementById('email-rdv-to').value = p.email||'';
+    document.getElementById('email-rdv-body').value =
+      `Madame, Monsieur ${p.contact||''},\n\nSpécialiste en fournitures et mobilier de bureau, je me permets de prendre contact avec vous afin de vous présenter nos solutions.\n\nNos gammes couvrent l'ensemble des besoins de votre entreprise : consommables, fournitures de bureau, mobilier ergonomique et aménagement d'espaces de travail.\n\nSeriez-vous disponible prochainement pour un court rendez-vous ?\n\nCordialement`;
+  }
+
+  async function sendEmail(type) {
+    const to = document.getElementById(type==='relance'?'email-relance-to':'email-rdv-to').value.trim();
+    const body = document.getElementById(type==='relance'?'email-relance-body':'email-rdv-body').value.trim();
+    if (!to || !body) { alert('Veuillez remplir tous les champs'); return; }
+    await sb.from('emails_envoyes').insert({
+      destinataire:to, type, contenu:body,
+      date:new Date().toISOString(), commercial_id:currentUser.id,
+    });
+    showToast(`Email envoyé à ${to} ✓`);
+    await loadEmails();
+    // ℹ️ Pour l'envoi réel via Resend : configurer une Edge Function Supabase
+  }
+
+  async function inviteUser() {
+    const email = val('invite-email');
+    const role = val('invite-role');
+    if (!email) return;
+    const { error } = await sb.from('users').insert({ email, role });
+    if (!error) { closeModal('modal-invite'); await loadUsers(); showToast('Invitation envoyée'); }
+    else alert('Erreur : '+error.message);
+  }
+
+  // ============================================
+  // EDIT (stubs — détail à implémenter)
+  // ============================================
+  function openFicheClient(id) { const c = allClients.find(x=>x.id===id); if(c) alert(`Fiche client : ${c.nom}\nContact : ${c.contact||'—'}\nTél : ${c.telephone||'—'}\nZone : ${c.zone||'—'}\nStatut : ${c.statut}`); }
+  function openFicheProspect(id) { const p = allProspects.find(x=>x.id===id); if(p) alert(`Fiche prospect : ${p.nom}\nContact : ${p.contact||'—'}\nTél : ${p.telephone||'—'}\nStatut : ${p.statut}`); }
+  function editVisite(id) { showToast('Module édition visite — à venir prochainement'); }
+  function editDevis(id) { showToast('Module édition devis — à venir prochainement'); }
+
+  // ============================================
+  // FILTERS
+  // ============================================
+  function filterClients() {
+    const q = val('search-clients').toLowerCase();
+    const zone = val('filter-client-zone');
+    const statut = val('filter-client-statut');
+    renderClients(allClients.filter(c=>(!q||c.nom.toLowerCase().includes(q)||(c.contact||'').toLowerCase().includes(q))&&(!zone||c.zone===zone)&&(!statut||c.statut===statut)));
+  }
+
+  function filterProspects() {
+    const q = val('search-prospects').toLowerCase();
+    const statut = val('filter-prospect-statut');
+    renderProspects(allProspects.filter(p=>(!q||p.nom.toLowerCase().includes(q)||(p.contact||'').toLowerCase().includes(q))&&(!statut||p.statut===statut)));
+  }
+
+  function filterVisites() {
+    const date = val('filter-visite-date');
+    const type = val('filter-visite-type');
+    const resultat = val('filter-visite-resultat');
+    renderVisites(allVisites.filter(v=>(!date||v.date.startsWith(date))&&(!type||v.type===type)&&(!resultat||v.resultat===resultat)));
+  }
+
+  function filterDevis() {
+    const q = val('search-devis').toLowerCase();
+    const statut = val('filter-devis-statut');
+    const type = val('filter-devis-type');
+    renderDevis(allDevis.filter(d=>(!q||(d.clients?.nom||'').toLowerCase().includes(q)||(d.reference||'').toLowerCase().includes(q))&&(!statut||d.statut===statut)&&(!type||d.type===type)));
+  }
+
+  // ============================================
+  // SELECT POPULATION
+  // ============================================
+  function populateSelects() {
+    // Client select (devis + visite)
+    const cOpts = allClients.map(c=>`<option value="${c.id}">${c.nom}</option>`).join('');
+    document.getElementById('d-client-id').innerHTML = '<option value="">-- Sélectionner un client --</option>'+cOpts;
+
+    // Visite contact (clients + prospects)
+    const cVisite = allClients.map(c=>`<option value="client::${c.id}">[Client] ${c.nom}</option>`).join('');
+    const pVisite = allProspects.map(p=>`<option value="prospect::${p.id}">[Prospect] ${p.nom}</option>`).join('');
+    document.getElementById('v-contact-id').innerHTML = '<option value="">-- Sélectionner --</option>'+cVisite+pVisite;
+
+    // Devis email
+    const devisOpts = allDevis.filter(d=>!['Gagné','Perdu','Annulé'].includes(d.statut))
+      .map(d=>`<option value="${d.id}">${d.clients?.nom||'—'} — ${d.reference||'Sans ref'} (${d.statut})</option>`).join('');
+    document.getElementById('email-devis-select').innerHTML = '<option value="">-- Choisir un devis --</option>'+devisOpts;
+
+    // Prospect email
+    const prospOpts = allProspects.filter(p=>p.statut!=='Sans suite')
+      .map(p=>`<option value="${p.id}">${p.nom}${p.contact?' — '+p.contact:''}</option>`).join('');
+    document.getElementById('email-prospect-select').innerHTML = '<option value="">-- Choisir un prospect --</option>'+prospOpts;
+
+    // Zone filter
+    const zones = [...new Set(allClients.map(c=>c.zone).filter(Boolean))].sort();
+    document.getElementById('filter-client-zone').innerHTML = '<option value="">Toutes les zones</option>'+zones.map(z=>`<option>${z}</option>`).join('');
+  }
+
+  // ============================================
+  // MAP
+  // ============================================
+  function initMap() {
+    if (mapInstance) { updateMap(); return; }
+    mapInstance = L.map('map').setView([44.9, 4.9], 9);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution:'© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(mapInstance);
+    updateMap();
+  }
+
+  function updateMap() {
+    if (!mapInstance) return;
+    mapInstance.eachLayer(l => { if(l instanceof L.Marker) mapInstance.removeLayer(l); });
+    const filter = val('carte-filter-type');
+
+    const makeIcon = color => L.divIcon({
+      className:'',
+      html:`<div style="width:13px;height:13px;background:${color};border-radius:50%;border:2.5px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3)"></div>`,
+      iconSize:[13,13], iconAnchor:[6,6]
+    });
+
+    if (filter==='all'||filter==='clients') {
+      allClients.filter(c=>c.lat&&c.lng).forEach(c=>{
+        L.marker([c.lat,c.lng],{icon:makeIcon('#2563EB')}).addTo(mapInstance)
+          .bindPopup(`<strong>${c.nom}</strong><br>${c.contact||''}<br><span style="color:#10B981;font-size:0.8rem">✓ Client actif</span>`);
+      });
+    }
+    if (filter==='all'||filter==='prospects') {
+      allProspects.filter(p=>p.lat&&p.lng).forEach(p=>{
+        L.marker([p.lat,p.lng],{icon:makeIcon('#F59E0B')}).addTo(mapInstance)
+          .bindPopup(`<strong>${p.nom}</strong><br>${p.contact||''}<br><span style="color:#F59E0B;font-size:0.8rem">${p.statut}</span>`);
+      });
+    }
+  }
+
+  // ============================================
+  // NAVIGATION
+  // ============================================
+  const pageMap = {
+    dashboard:{id:'page-dashboard',title:'Tableau de bord'},
+    clients:{id:'page-clients',title:'Clients'},
+    prospects:{id:'page-prospects',title:'Prospects'},
+    tournees:{id:'page-tournees',title:'Tournées'},
+    devis:{id:'page-devis',title:'Devis'},
+    emails:{id:'page-emails',title:'Emails'},
+    carte:{id:'page-carte',title:'Carte'},
+    parametres:{id:'page-parametres',title:'Paramètres'},
+  };
+
+  function navigate(page) {
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+    const p = pageMap[page]; if (!p) return;
+    document.getElementById(p.id).classList.add('active');
+    const navEl = document.getElementById('nav-'+page);
+    if (navEl) navEl.classList.add('active');
+    document.getElementById('topbar-title').textContent = p.title;
+    if (page==='carte') setTimeout(initMap, 150);
+    closeSidebar();
+  }
+
+  // ============================================
+  // MODALS
+  // ============================================
+  function openModal(id) { document.getElementById(id).classList.add('open'); }
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+  document.querySelectorAll('.modal-overlay').forEach(o => {
+    o.addEventListener('click', e => { if(e.target===o) o.classList.remove('open'); });
+  });
+
+  document.addEventListener('keydown', e => {
+    if (e.key==='Escape') document.querySelectorAll('.modal-overlay.open').forEach(o=>o.classList.remove('open'));
+  });
+
+  // ============================================
+  // SIDEBAR
+  // ============================================
+  function openSidebar() { document.getElementById('sidebar').classList.add('open'); document.getElementById('sidebar-overlay').classList.add('show'); }
+  function closeSidebar() { document.getElementById('sidebar').classList.remove('open'); document.getElementById('sidebar-overlay').classList.remove('show'); }
+
+  // ============================================
+  // TOAST
+  // ============================================
+  function showToast(msg) {
+    const t = document.createElement('div');
+    t.style.cssText = 'position:fixed;bottom:24px;right:24px;background:#1A1F36;color:white;padding:12px 20px;border-radius:8px;font-size:0.875rem;font-family:DM Sans,sans-serif;box-shadow:0 4px 20px rgba(0,0,0,0.2);z-index:9999;animation:toastIn 0.3s ease;';
+    t.textContent = msg;
+    const style = document.createElement('style');
+    style.textContent = '@keyframes toastIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}';
+    document.head.appendChild(style);
+    document.body.appendChild(t);
+    setTimeout(()=>{t.style.opacity='0';t.style.transition='opacity 0.3s';setTimeout(()=>t.remove(),300);},2500);
+  }
+
+  // ============================================
+  // UTILS
+  // ============================================
+  function val(id) { return document.getElementById(id)?.value||''; }
+  function clearForm(ids) { ids.forEach(id=>{ const el=document.getElementById(id); if(el) el.value=''; }); }
+</script>
+</body>
+</html>
