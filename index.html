@@ -316,6 +316,62 @@
     .filter-row input:focus, .filter-row select:focus { border-color:var(--blue); }
     .filter-row input[type="text"] { width:220px; }
 
+    /* FICHE DRAWER */
+    .drawer-overlay { display:none; position:fixed; inset:0; background:rgba(10,14,23,0.45); backdrop-filter:blur(2px); z-index:150; }
+    .drawer-overlay.open { display:block; }
+    .drawer {
+      position:fixed; top:0; right:-100%; width:100%; max-width:600px; height:100vh;
+      background:white; z-index:151; overflow-y:auto;
+      box-shadow:-8px 0 40px rgba(0,0,0,0.12);
+      transition:right 0.3s cubic-bezier(0.4,0,0.2,1);
+      display:flex; flex-direction:column;
+    }
+    .drawer.open { right:0; }
+    .drawer-header {
+      padding:22px 24px; border-bottom:1px solid var(--border);
+      display:flex; align-items:flex-start; justify-content:space-between;
+      position:sticky; top:0; background:white; z-index:10;
+    }
+    .drawer-header-left { display:flex; align-items:center; gap:14px; }
+    .drawer-avatar {
+      width:46px; height:46px; border-radius:12px;
+      background:linear-gradient(135deg,var(--blue),var(--purple));
+      display:flex; align-items:center; justify-content:center;
+      font-family:'Syne',sans-serif; font-size:1rem; font-weight:700; color:white;
+      flex-shrink:0;
+    }
+    .drawer-title { font-family:'Syne',sans-serif; font-size:1.1rem; font-weight:700; color:var(--ink); letter-spacing:-0.02em; }
+    .drawer-subtitle { font-size:0.8rem; color:var(--text-muted); margin-top:2px; }
+    .drawer-close { background:none; border:none; cursor:pointer; color:var(--text-muted); padding:6px; border-radius:6px; transition:all 0.15s; font-size:1.1rem; }
+    .drawer-close:hover { background:#F3F4F6; color:var(--text); }
+    .drawer-body { padding:24px; flex:1; }
+    .drawer-section { margin-bottom:24px; }
+    .drawer-section-title {
+      font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.1em;
+      color:var(--text-muted); margin-bottom:14px; display:flex; align-items:center; gap:8px;
+    }
+    .drawer-section-title::after { content:''; flex:1; height:1px; background:var(--border); }
+    .info-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .info-item { background:#F8F9FB; border-radius:var(--radius-sm); padding:12px 14px; }
+    .info-item-label { font-size:0.7rem; font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:4px; }
+    .info-item-value { font-size:0.875rem; color:var(--text); font-weight:500; }
+    .timeline-item {
+      display:flex; gap:12px; padding:12px 0;
+      border-bottom:1px solid #F3F4F6;
+    }
+    .timeline-item:last-child { border-bottom:none; }
+    .timeline-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; margin-top:6px; }
+    .timeline-dot.blue { background:var(--blue); }
+    .timeline-dot.green { background:var(--green); }
+    .timeline-dot.amber { background:var(--amber); }
+    .timeline-dot.red { background:var(--red); }
+    .timeline-dot.gray { background:#D1D5DB; }
+    .timeline-content { flex:1; }
+    .timeline-title { font-size:0.875rem; font-weight:600; color:var(--text); }
+    .timeline-meta { font-size:0.75rem; color:var(--text-muted); margin-top:2px; }
+    .timeline-note { font-size:0.8rem; color:var(--text); background:#F8F9FB; padding:8px 10px; border-radius:6px; margin-top:6px; line-height:1.5; }
+    .drawer-actions { display:flex; gap:8px; padding:16px 24px; border-top:1px solid var(--border); background:white; position:sticky; bottom:0; }
+
     /* RESPONSIVE */
     @media(max-width:900px) {
       .sidebar { transform:translateX(-100%); }
@@ -836,6 +892,73 @@
   </div>
 </div>
 
+<!-- FICHE CLIENT DRAWER -->
+<div class="drawer-overlay" id="drawer-overlay-client" onclick="closeFicheClient()"></div>
+<div class="drawer" id="drawer-client">
+  <div class="drawer-header">
+    <div class="drawer-header-left">
+      <div class="drawer-avatar" id="fiche-avatar">--</div>
+      <div>
+        <div class="drawer-title" id="fiche-nom">—</div>
+        <div class="drawer-subtitle" id="fiche-statut-label">—</div>
+      </div>
+    </div>
+    <button class="drawer-close" onclick="closeFicheClient()">✕</button>
+  </div>
+  <div class="drawer-body">
+    <div class="drawer-section">
+      <div class="drawer-section-title">Informations</div>
+      <div class="info-grid">
+        <div class="info-item"><div class="info-item-label">Contact</div><div class="info-item-value" id="fiche-contact">—</div></div>
+        <div class="info-item"><div class="info-item-label">Téléphone</div><div class="info-item-value" id="fiche-tel">—</div></div>
+        <div class="info-item"><div class="info-item-label">Email</div><div class="info-item-value" id="fiche-email" style="word-break:break-all;">—</div></div>
+        <div class="info-item"><div class="info-item-label">Zone</div><div class="info-item-value" id="fiche-zone">—</div></div>
+        <div class="info-item" style="grid-column:1/-1"><div class="info-item-label">Adresse</div><div class="info-item-value" id="fiche-adresse">—</div></div>
+      </div>
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-section-title">Activité</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
+        <div class="stat-card" style="padding:14px;"><div class="stat-value" id="fiche-nb-visites" style="font-size:1.3rem;">0</div><div class="stat-label">Visites</div></div>
+        <div class="stat-card" style="padding:14px;"><div class="stat-value" id="fiche-nb-devis" style="font-size:1.3rem;">0</div><div class="stat-label">Devis</div></div>
+        <div class="stat-card" style="padding:14px;"><div class="stat-value" id="fiche-ca" style="font-size:1.3rem;">—</div><div class="stat-label">CA en cours (€)</div></div>
+      </div>
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-section-title">Devis</div>
+      <div id="fiche-devis-list"><div class="empty-state" style="padding:20px 0;"><h3>Aucun devis</h3></div></div>
+    </div>
+    <div class="drawer-section">
+      <div class="drawer-section-title">Historique des visites</div>
+      <div id="fiche-visites-list"><div class="empty-state" style="padding:20px 0;"><h3>Aucune visite</h3></div></div>
+    </div>
+  </div>
+  <div class="drawer-actions">
+    <button class="btn btn-outline" style="flex:1" onclick="openEditClient()">Modifier</button>
+    <button class="btn btn-blue" style="flex:1" onclick="openVisiteFromFiche()">Nouvelle visite</button>
+    <button class="btn btn-blue" style="flex:1;background:var(--green);" onclick="openDevisFromFiche()">Nouveau devis</button>
+  </div>
+</div>
+<div class="modal-overlay" id="modal-edit-client">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title">Modifier le client</span><button class="modal-close" onclick="closeModal('modal-edit-client')">✕</button></div>
+    <input type="hidden" id="ec-id">
+    <div class="form-group"><label>Nom de la société *</label><input type="text" id="ec-nom"></div>
+    <div class="form-group"><label>Contact</label><input type="text" id="ec-contact"></div>
+    <div class="form-group"><label>Email</label><input type="email" id="ec-email"></div>
+    <div class="form-group"><label>Téléphone</label><input type="tel" id="ec-tel"></div>
+    <div class="form-group"><label>Adresse</label><input type="text" id="ec-adresse"></div>
+    <div class="form-group"><label>Zone</label><input type="text" id="ec-zone"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;"><div class="form-group"><label>Latitude</label><input type="number" id="ec-lat" step="0.0001"></div><div class="form-group"><label>Longitude</label><input type="number" id="ec-lng" step="0.0001"></div></div>
+    <div class="form-group"><label>Statut</label><select id="ec-statut"><option value="Client actif">Client actif</option><option value="Inactif">Inactif</option></select></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" style="color:var(--red);border-color:var(--red);" onclick="deleteClient()">Supprimer</button>
+      <button class="btn btn-outline" onclick="closeModal('modal-edit-client')">Annuler</button>
+      <button class="btn btn-blue" onclick="updateClient()">Enregistrer</button>
+    </div>
+  </div>
+</div>
+
 <!-- Modal Invite -->
 <div class="modal-overlay" id="modal-invite">
   <div class="modal">
@@ -856,8 +979,8 @@
   // ============================================
   // ⚙️  CONFIG SUPABASE — À REMPLIR
   // ============================================
-  const SUPABASE_URL = 'https://fuimmujpybjrrgekvidq.supabase.co';
-  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZ1aW1tdWpweWJqcnJnZWt2aWRxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzc5ODMwNDQsImV4cCI6MjA5MzU1OTA0NH0.9F_oKx0Ba4CpByN9YanlvCj3-fXHahRI4jkEzDjJc5E';
+  const SUPABASE_URL = 'VOTRE_SUPABASE_URL';
+  const SUPABASE_ANON_KEY = 'VOTRE_SUPABASE_ANON_KEY';
 
   const { createClient } = supabase;
   const sb = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -1301,10 +1424,157 @@
   // ============================================
   // EDIT (stubs — détail à implémenter)
   // ============================================
-  function openFicheClient(id) { const c = allClients.find(x=>x.id===id); if(c) alert(`Fiche client : ${c.nom}\nContact : ${c.contact||'—'}\nTél : ${c.telephone||'—'}\nZone : ${c.zone||'—'}\nStatut : ${c.statut}`); }
-  function openFicheProspect(id) { const p = allProspects.find(x=>x.id===id); if(p) alert(`Fiche prospect : ${p.nom}\nContact : ${p.contact||'—'}\nTél : ${p.telephone||'—'}\nStatut : ${p.statut}`); }
-  function editVisite(id) { showToast('Module édition visite — à venir prochainement'); }
-  function editDevis(id) { showToast('Module édition devis — à venir prochainement'); }
+  // ============================================
+  // FICHE CLIENT
+  // ============================================
+  let currentFicheClientId = null;
+
+  async function openFicheClient(id) {
+    currentFicheClientId = id;
+    const c = allClients.find(x => x.id === id);
+    if (!c) return;
+
+    // Header
+    const initials = c.nom.split(' ').map(n=>n[0]).join('').toUpperCase().slice(0,2);
+    document.getElementById('fiche-avatar').textContent = initials;
+    document.getElementById('fiche-nom').textContent = c.nom;
+    document.getElementById('fiche-statut-label').innerHTML =
+      `<span class="badge ${c.statut==='Client actif'?'badge-green':'badge-gray'}">${c.statut}</span>`;
+
+    // Infos
+    document.getElementById('fiche-contact').textContent = c.contact || '—';
+    document.getElementById('fiche-tel').textContent = c.telephone || '—';
+    document.getElementById('fiche-email').textContent = c.email || '—';
+    document.getElementById('fiche-zone').textContent = c.zone || '—';
+    document.getElementById('fiche-adresse').textContent = c.adresse || '—';
+
+    // Visites liées
+    const visites = allVisites.filter(v => v.client_id === id);
+    document.getElementById('fiche-nb-visites').textContent = visites.length;
+
+    // Devis liés
+    const devis = allDevis.filter(d => d.client_id === id);
+    document.getElementById('fiche-nb-devis').textContent = devis.length;
+
+    // CA en cours
+    const ca = devis.filter(d=>!['Gagné','Perdu','Annulé'].includes(d.statut)).reduce((s,d)=>s+(Number(d.montant)||0),0);
+    document.getElementById('fiche-ca').textContent = ca > 0 ? ca.toLocaleString('fr-FR') : '0';
+
+    // Liste devis
+    const devisBadge = {'Déposé':'badge-blue','En attente retour':'badge-amber','Relancé':'badge-purple','Gagné':'badge-green','Perdu':'badge-red','Annulé':'badge-gray'};
+    document.getElementById('fiche-devis-list').innerHTML = devis.length
+      ? devis.map(d=>`
+          <div class="timeline-item">
+            <div class="timeline-dot ${d.statut==='Gagné'?'green':d.statut==='Perdu'?'red':d.statut==='Relancé'?'amber':'blue'}"></div>
+            <div class="timeline-content">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                <span class="timeline-title">${d.reference||'Sans référence'}</span>
+                <span class="badge ${devisBadge[d.statut]||'badge-gray'}">${d.statut}</span>
+              </div>
+              <div class="timeline-meta">
+                ${d.type} · ${d.montant?Number(d.montant).toLocaleString('fr-FR')+' €':'Montant non renseigné'}
+                · Déposé le ${d.date_depot?new Date(d.date_depot).toLocaleDateString('fr-FR'):'—'}
+              </div>
+              ${d.pdf_url?`<a href="${d.pdf_url}" target="_blank" class="btn btn-outline btn-sm" style="margin-top:6px;">Voir le PDF</a>`:''}
+            </div>
+          </div>`).join('')
+      : '<div class="empty-state" style="padding:16px 0;"><h3>Aucun devis</h3><p>Aucun devis enregistré pour ce client</p></div>';
+
+    // Historique visites
+    const resultColor = {'RDV obtenu':'green','Devis à faire':'blue','Relance prévue':'amber','Sans suite':'gray'};
+    const resultBadgeMap = {'RDV obtenu':'badge-green','Devis à faire':'badge-blue','Relance prévue':'badge-amber','Sans suite':'badge-gray'};
+    document.getElementById('fiche-visites-list').innerHTML = visites.length
+      ? visites.map(v=>`
+          <div class="timeline-item">
+            <div class="timeline-dot ${resultColor[v.resultat]||'gray'}"></div>
+            <div class="timeline-content">
+              <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                <span class="timeline-title">${new Date(v.date).toLocaleDateString('fr-FR')} — ${v.type}</span>
+                <span class="badge ${resultBadgeMap[v.resultat]||'badge-gray'}">${v.resultat}</span>
+              </div>
+              <div class="timeline-meta">Par ${v.commercial_nom||'—'}</div>
+              ${v.notes?`<div class="timeline-note">${v.notes}</div>`:''}
+            </div>
+          </div>`).join('')
+      : '<div class="empty-state" style="padding:16px 0;"><h3>Aucune visite</h3><p>Aucune visite enregistrée pour ce client</p></div>';
+
+    // Ouvrir le drawer
+    document.getElementById('drawer-client').classList.add('open');
+    document.getElementById('drawer-overlay-client').classList.add('open');
+  }
+
+  function closeFicheClient() {
+    document.getElementById('drawer-client').classList.remove('open');
+    document.getElementById('drawer-overlay-client').classList.remove('open');
+  }
+
+  function openEditClient() {
+    const c = allClients.find(x => x.id === currentFicheClientId);
+    if (!c) return;
+    document.getElementById('ec-id').value = c.id;
+    document.getElementById('ec-nom').value = c.nom || '';
+    document.getElementById('ec-contact').value = c.contact || '';
+    document.getElementById('ec-email').value = c.email || '';
+    document.getElementById('ec-tel').value = c.telephone || '';
+    document.getElementById('ec-adresse').value = c.adresse || '';
+    document.getElementById('ec-zone').value = c.zone || '';
+    document.getElementById('ec-lat').value = c.lat || '';
+    document.getElementById('ec-lng').value = c.lng || '';
+    document.getElementById('ec-statut').value = c.statut || 'Client actif';
+    openModal('modal-edit-client');
+  }
+
+  async function updateClient() {
+    const id = document.getElementById('ec-id').value;
+    const { error } = await sb.from('clients').update({
+      nom: val('ec-nom'), contact: val('ec-contact'),
+      email: val('ec-email'), telephone: val('ec-tel'),
+      adresse: val('ec-adresse'), zone: val('ec-zone'),
+      lat: parseFloat(val('ec-lat'))||null,
+      lng: parseFloat(val('ec-lng'))||null,
+      statut: val('ec-statut'),
+      updated_at: new Date().toISOString(),
+    }).eq('id', id);
+    if (!error) {
+      closeModal('modal-edit-client');
+      await loadClients();
+      await openFicheClient(id);
+      showToast('Client mis à jour ✓');
+    } else alert('Erreur : ' + error.message);
+  }
+
+  async function deleteClient() {
+    if (!confirm('Supprimer ce client ? Cette action est irréversible.')) return;
+    const id = document.getElementById('ec-id').value;
+    const { error } = await sb.from('clients').delete().eq('id', id);
+    if (!error) {
+      closeModal('modal-edit-client');
+      closeFicheClient();
+      await loadClients();
+      updateDashboard();
+      showToast('Client supprimé');
+    } else alert('Erreur : ' + error.message);
+  }
+
+  function openVisiteFromFiche() {
+    closeFicheClient();
+    // Pré-sélectionner le client dans la modal visite
+    const select = document.getElementById('v-contact-id');
+    const opt = [...select.options].find(o => o.value === `client::${currentFicheClientId}`);
+    if (opt) select.value = opt.value;
+    openModal('modal-visite');
+  }
+
+  function openDevisFromFiche() {
+    closeFicheClient();
+    // Pré-sélectionner le client dans la modal devis
+    document.getElementById('d-client-id').value = currentFicheClientId;
+    openModal('modal-devis');
+  }
+
+  function openFicheProspect(id) { showToast('Fiche prospect — module en cours de construction'); }
+  function editVisite(id) { showToast('Édition visite — à venir'); }
+  function editDevis(id) { showToast('Édition devis — à venir'); }
 
   // ============================================
   // FILTERS
