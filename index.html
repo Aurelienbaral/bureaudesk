@@ -1290,7 +1290,7 @@
     btn.disabled = true; btn.textContent = 'Enregistrement...';
 
     try {
-      const { data, error } = await sb.from('clients').insert({
+      const { error } = await sb.from('clients').insert({
         nom,
         contact: val('c-contact'),
         email: val('c-email'),
@@ -1301,13 +1301,14 @@
         lat: parseFloat(val('c-lat'))||null,
         lng: parseFloat(val('c-lng'))||null,
         commercial_id: currentUser?.id || null,
-      }).select();
+      });
 
       if (error) {
         showModalError('modal-client-error', 'Erreur : ' + error.message);
       } else {
         closeModal('modal-client');
         clearForm(['c-nom','c-contact','c-email','c-tel','c-adresse','c-zone','c-lat','c-lng']);
+        document.getElementById('modal-client-error').style.display = 'none';
         await loadClients();
         updateDashboard();
         showToast('Client enregistré ✓');
