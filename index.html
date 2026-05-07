@@ -1004,10 +1004,11 @@
   // ============================================
   window.addEventListener('DOMContentLoaded', async () => {
     await new Promise(r => setTimeout(r, 1200));
+
     const { data: { session } } = await sb.auth.getSession();
     hideLoading();
 
-    if (session) {
+    if (session?.user) {
       currentUser = session.user;
       await initApp();
     } else {
@@ -1015,8 +1016,15 @@
     }
 
     sb.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_IN') { currentUser = session.user; await initApp(); }
-      else if (event === 'SIGNED_OUT') { showLogin(); resetApp(); }
+      if (event === 'SIGNED_IN' && session?.user) {
+        currentUser = session.user;
+        await initApp();
+      } else if (event === 'SIGNED_OUT') {
+        showLogin();
+        resetApp();
+      } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+        currentUser = session.user;
+      }
     });
   });
 
@@ -1285,6 +1293,7 @@
   async function saveClient() {
     const nom = document.getElementById('c-nom').value.trim();
     if (!nom) { showModalError('modal-client-error', 'Le nom de la société est obligatoire'); return; }
+    if (!currentUser) { showModalError('modal-client-error', 'Session expirée — rechargez la page et reconnectez-vous'); return; }
 
     const btn = document.getElementById('btn-save-client');
     btn.disabled = true; btn.textContent = 'Enregistrement...';
