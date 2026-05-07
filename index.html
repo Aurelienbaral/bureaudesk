@@ -1288,112 +1288,129 @@
   }
 
   // ============================================
-  // SAVE
+  // SAVE FUNCTIONS
   // ============================================
   async function saveClient() {
     const nom = document.getElementById('c-nom').value.trim();
-    if (!nom) { showModalError('modal-client-error', 'Le nom de la société est obligatoire'); return; }
-    if (!currentUser) { showModalError('modal-client-error', 'Session expirée — rechargez la page et reconnectez-vous'); return; }
-
+    if (!nom) { showModalError('modal-client-error', 'Le nom est obligatoire'); return; }
     const btn = document.getElementById('btn-save-client');
     btn.disabled = true; btn.textContent = 'Enregistrement...';
-
+    document.getElementById('modal-client-error').style.display = 'none';
+    const payload = { nom, statut: val('c-statut') || 'Client actif' };
+    if (val('c-contact')) payload.contact = val('c-contact');
+    if (val('c-email')) payload.email = val('c-email');
+    if (val('c-tel')) payload.telephone = val('c-tel');
+    if (val('c-adresse')) payload.adresse = val('c-adresse');
+    if (val('c-zone')) payload.zone = val('c-zone');
+    const lat = parseFloat(val('c-lat')); if (!isNaN(lat)) payload.lat = lat;
+    const lng = parseFloat(val('c-lng')); if (!isNaN(lng)) payload.lng = lng;
     try {
-      const { error } = await sb.from('clients').insert({
-        nom,
-        contact: val('c-contact'),
-        email: val('c-email'),
-        telephone: val('c-tel'),
-        adresse: val('c-adresse'),
-        zone: val('c-zone'),
-        statut: val('c-statut'),
-        lat: parseFloat(val('c-lat'))||null,
-        lng: parseFloat(val('c-lng'))||null,
-        commercial_id: currentUser?.id || null,
-      });
-
-      if (error) {
-        showModalError('modal-client-error', 'Erreur : ' + error.message);
-      } else {
+      const { error } = await sb.from('clients').insert(payload);
+      if (error) { showModalError('modal-client-error', 'Erreur : ' + error.message); }
+      else {
         closeModal('modal-client');
         clearForm(['c-nom','c-contact','c-email','c-tel','c-adresse','c-zone','c-lat','c-lng']);
-        document.getElementById('modal-client-error').style.display = 'none';
-        await loadClients();
-        updateDashboard();
+        await loadClients(); updateDashboard();
         showToast('Client enregistré ✓');
       }
-    } catch(e) {
-      showModalError('modal-client-error', 'Erreur inattendue : ' + e.message);
-    }
-
+    } catch(e) { showModalError('modal-client-error', 'Erreur : ' + e.message); }
     btn.disabled = false; btn.textContent = 'Enregistrer';
   }
 
   async function saveProspect() {
     const nom = document.getElementById('p-nom').value.trim();
-    if (!nom) { alert('Le nom de la société est obligatoire'); return; }
-    const { error } = await sb.from('prospects').insert({
-      nom, contact: val('p-contact'), email: val('p-email'),
-      telephone: val('p-tel'), adresse: val('p-adresse'),
-      zone: val('p-zone'), statut: val('p-statut'),
-      notes: val('p-notes'),
-      lat: parseFloat(val('p-lat'))||null,
-      lng: parseFloat(val('p-lng'))||null,
-      commercial_id: currentUser.id,
-    });
-    if (!error) { closeModal('modal-prospect'); clearForm(['p-nom','p-contact','p-email','p-tel','p-adresse','p-zone','p-notes','p-lat','p-lng']); await loadProspects(); updateDashboard(); }
-    else alert('Erreur : '+error.message);
+    if (!nom) { showToast('Le nom est obligatoire'); return; }
+    const payload = { nom, statut: val('p-statut') || 'En cours' };
+    if (val('p-contact')) payload.contact = val('p-contact');
+    if (val('p-email')) payload.email = val('p-email');
+    if (val('p-tel')) payload.telephone = val('p-tel');
+    if (val('p-adresse')) payload.adresse = val('p-adresse');
+    if (val('p-zone')) payload.zone = val('p-zone');
+    if (val('p-notes')) payload.notes = val('p-notes');
+    const lat = parseFloat(val('p-lat')); if (!isNaN(lat)) payload.lat = lat;
+    const lng = parseFloat(val('p-lng')); if (!isNaN(lng)) payload.lng = lng;
+    try {
+      const { error } = await sb.from('prospects').insert(payload);
+      if (!error) {
+        closeModal('modal-prospect');
+        clearForm(['p-nom','p-contact','p-email','p-tel','p-adresse','p-zone','p-notes','p-lat','p-lng']);
+        await loadProspects(); updateDashboard();
+        showToast('Prospect enregistré ✓');
+      } else showToast('Erreur : ' + error.message);
+    } catch(e) { showToast('Erreur : ' + e.message); }
   }
 
   async function saveVisite() {
     const contactId = val('v-contact-id');
-    if (!contactId) { alert('Sélectionnez un client ou prospect'); return; }
+    const date = val('v-date');
+    if (!contactId) { showToast('Sélectionnez un client ou prospect'); return; }
+    if (!date) { showToast('La date est obligatoire'); return; }
     const [type, id] = contactId.split('::');
     const payload = {
-      date: val('v-date'), type: val('v-type'),
-      resultat: val('v-resultat'), notes: val('v-notes'),
-      commercial_id: currentUser.id,
-      commercial_nom: currentUserProfile?.nom || currentUser.email.split('@')[0],
+      date,
+      type: val('v-type') || 'Physique',
+      resultat: val('v-resultat') || 'Sans suite',
+      commercial_nom: currentUserProfile?.nom || currentUser?.email?.split('@')[0] || 'Inconnu',
     };
-    if (type==='client') payload.client_id = id;
+    if (val('v-notes')) payload.notes = val('v-notes');
+    if (type === 'client') payload.client_id = id;
     else payload.prospect_id = id;
-    const { error } = await sb.from('visites').insert(payload);
-    if (!error) {
-      closeModal('modal-visite');
-      document.getElementById('v-notes').value='';
-      await loadVisites(); updateDashboard();
-    } else alert('Erreur : '+error.message);
+    try {
+      const { error } = await sb.from('visites').insert(payload);
+      if (!error) {
+        closeModal('modal-visite');
+        document.getElementById('v-notes').value = '';
+        document.getElementById('v-date').value = new Date().toISOString().slice(0,16);
+        await loadVisites(); updateDashboard();
+        showToast('Visite enregistrée ✓');
+      } else showToast('Erreur : ' + error.message);
+    } catch(e) { showToast('Erreur : ' + e.message); }
   }
 
   async function saveDevis() {
     const clientId = val('d-client-id');
-    if (!clientId) { alert('Sélectionnez un client'); return; }
+    const dateDepot = val('d-date');
+    if (!clientId) { showToast('Sélectionnez un client'); return; }
+    if (!dateDepot) { showToast('La date est obligatoire'); return; }
     const file = document.getElementById('d-pdf').files[0];
     let pdfUrl = null;
     if (file) {
-      const filename = `devis/${currentUser.id}/${Date.now()}_${file.name}`;
-      const { error: ue } = await sb.storage.from('documents').upload(filename, file);
-      if (!ue) {
-        const { data: ud } = sb.storage.from('documents').getPublicUrl(filename);
-        pdfUrl = ud?.publicUrl;
-      }
+      try {
+        const filename = `devis/${Date.now()}_${file.name}`;
+        const { error: ue } = await sb.storage.from('documents').upload(filename, file);
+        if (!ue) { const { data: ud } = sb.storage.from('documents').getPublicUrl(filename); pdfUrl = ud?.publicUrl; }
+      } catch(e) {}
     }
-    const { error } = await sb.from('devis').insert({
-      client_id: clientId, reference: val('d-ref'),
-      type: val('d-type'), montant: parseFloat(val('d-montant'))||null,
-      date_depot: val('d-date'), statut: val('d-statut'),
-      notes: val('d-notes'), pdf_url: pdfUrl,
-      commercial_id: currentUser.id,
-      commercial_nom: currentUserProfile?.nom || currentUser.email.split('@')[0],
-    });
-    if (!error) { closeModal('modal-devis'); clearForm(['d-ref','d-montant','d-notes']); document.getElementById('d-pdf').value=''; await loadDevis(); updateDashboard(); }
-    else alert('Erreur : '+error.message);
+    const payload = {
+      client_id: clientId,
+      type: val('d-type') || 'One-shot',
+      date_depot: dateDepot,
+      statut: val('d-statut') || 'Déposé',
+      commercial_nom: currentUserProfile?.nom || currentUser?.email?.split('@')[0] || 'Inconnu',
+    };
+    if (val('d-ref')) payload.reference = val('d-ref');
+    const montant = parseFloat(val('d-montant')); if (!isNaN(montant)) payload.montant = montant;
+    if (val('d-notes')) payload.notes = val('d-notes');
+    if (pdfUrl) payload.pdf_url = pdfUrl;
+    try {
+      const { error } = await sb.from('devis').insert(payload);
+      if (!error) {
+        closeModal('modal-devis');
+        clearForm(['d-ref','d-montant','d-notes']);
+        document.getElementById('d-pdf').value = '';
+        await loadDevis(); updateDashboard();
+        showToast('Devis enregistré ✓');
+      } else showToast('Erreur : ' + error.message);
+    } catch(e) { showToast('Erreur : ' + e.message); }
   }
 
   async function saveProfile() {
     const nom = val('param-nom');
-    const { error } = await sb.from('users').upsert({id:currentUser.id,nom,email:currentUser.email});
-    if (!error) { await loadUserProfile(); showToast('Profil mis à jour ✓'); }
+    try {
+      const { error } = await sb.from('users').upsert({id: currentUser.id, nom, email: currentUser.email});
+      if (!error) { await loadUserProfile(); showToast('Profil mis à jour ✓'); }
+      else showToast('Erreur : ' + error.message);
+    } catch(e) { showToast('Erreur : ' + e.message); }
   }
 
   function saveSettings() {
@@ -1409,6 +1426,47 @@
     prospectJours = parseInt(localStorage.getItem('bd_prospect_jours'))||30;
     document.getElementById('param-alerte-jours').value = alerteJours;
     document.getElementById('param-prospect-jours').value = prospectJours;
+  }
+
+  async function updateClient() {
+    const id = val('ec-id');
+    const nom = val('ec-nom').trim();
+    if (!nom) { showToast('Le nom est obligatoire'); return; }
+    const payload = { nom, updated_at: new Date().toISOString() };
+    if (val('ec-contact')) payload.contact = val('ec-contact');
+    if (val('ec-email')) payload.email = val('ec-email');
+    if (val('ec-tel')) payload.telephone = val('ec-tel');
+    if (val('ec-adresse')) payload.adresse = val('ec-adresse');
+    if (val('ec-zone')) payload.zone = val('ec-zone');
+    if (val('ec-statut')) payload.statut = val('ec-statut');
+    const lat = parseFloat(val('ec-lat')); if (!isNaN(lat)) payload.lat = lat;
+    const lng = parseFloat(val('ec-lng')); if (!isNaN(lng)) payload.lng = lng;
+    try {
+      const { error } = await sb.from('clients').update(payload).eq('id', id);
+      if (!error) { closeModal('modal-edit-client'); await loadClients(); await openFicheClient(id); showToast('Client mis à jour ✓'); }
+      else showToast('Erreur : ' + error.message);
+    } catch(e) { showToast('Erreur : ' + e.message); }
+  }
+
+  async function deleteClient() {
+    if (!confirm('Supprimer ce client ?')) return;
+    const id = val('ec-id');
+    try {
+      const { error } = await sb.from('clients').delete().eq('id', id);
+      if (!error) { closeModal('modal-edit-client'); closeFicheClient(); await loadClients(); updateDashboard(); showToast('Client supprimé'); }
+      else showToast('Erreur : ' + error.message);
+    } catch(e) { showToast('Erreur : ' + e.message); }
+  }
+
+  async function inviteUser() {
+    const email = val('invite-email');
+    const role = val('invite-role');
+    if (!email) return;
+    try {
+      const { error } = await sb.from('users').insert({ email, role });
+      if (!error) { closeModal('modal-invite'); await loadUsers(); showToast('Invitation envoyée'); }
+      else showToast('Erreur : ' + error.message);
+    } catch(e) { showToast('Erreur : ' + e.message); }
   }
 
   // ============================================
